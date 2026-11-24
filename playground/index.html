@@ -1,0 +1,2047 @@
+<title>Living Block Playground</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap">
+<style>
+/* Layout: a working bench. Top bar of switches, a 16:9 world view on the left, the 9:16 street cam on the right. */
+:root {
+  --bg: #e7e6e3;
+  --panel: #f4f3f1;
+  --ink: #18181a;
+  --muted: #6b6a70;
+  --line: #cfcdc9;
+  --accent: #ea3383;
+  --chip: #ffffff;
+  --display: "Space Grotesk", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111113; --panel: #1a1a1d; --ink: #ecebe8; --muted: #9a99a0;
+    --line: #2c2c31; --accent: #ff5aa0; --chip: #232327; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111113; --panel: #1a1a1d; --ink: #ecebe8; --muted: #9a99a0;
+  --line: #2c2c31; --accent: #ff5aa0; --chip: #232327; color-scheme: dark;
+}
+html, body { height: 100%; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--mono); font-size: 12px;
+  display: flex; flex-direction: column; overflow: hidden;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 12px;
+  box-sizing: border-box; gap: 12px;
+}
+header { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; }
+header h1 { font-family: var(--display); font-size: 18px; font-weight: 700; margin: 0; letter-spacing: -0.01em; }
+header .ver { color: var(--muted); }
+.group { display: flex; gap: 4px; align-items: center; }
+.group span { color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; font-size: 10px; margin-right: 4px; }
+.spacer { flex: 1; }
+button, select {
+  font: inherit; color: var(--ink); background: var(--chip); border: 1px solid var(--line);
+  border-radius: 6px; padding: 6px 10px; cursor: pointer;
+}
+button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+button:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+kbd { font: inherit; color: var(--muted); }
+main { flex: 1; min-height: 0; display: flex; gap: 12px; justify-content: center; align-items: center; }
+.view { position: relative; border-radius: 10px; overflow: hidden; border: 1px solid var(--line); background: var(--panel); flex: none; }
+.view canvas { display: block; width: 100%; height: 100%; }
+.tag {
+  position: absolute; left: 10px; top: 10px; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
+  background: var(--chip); color: var(--ink); border: 1px solid var(--line); padding: 3px 7px; border-radius: 4px; pointer-events: none;
+}
+.labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.phrase {
+  position: absolute; left: 0; top: 0; white-space: nowrap; font-family: var(--mono); font-weight: 500;
+  text-transform: uppercase; letter-spacing: 0.05em; font-size: 13px; line-height: 1; padding: 5px 7px 4px;
+  transform-origin: 0 100%; will-change: transform, opacity;
+}
+#streetWrap .phrase { font-size: 10px; padding: 4px 5px 3px; }
+.cctv { position: absolute; inset: 0; pointer-events: none; color: #fff; font-size: 11px; text-shadow: 0 1px 2px #0008; }
+.cctv .tl { position: absolute; left: 12px; top: 12px; }
+.cctv .br { position: absolute; right: 12px; bottom: 12px; font-variant-numeric: tabular-nums; }
+.cctv .rec { color: #ff4a4a; }
+.legend { position: absolute; right: 10px; bottom: 10px; display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end;
+  background: var(--chip); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; pointer-events: none; max-width: calc(100% - 20px); }
+.legend i { display: inline-block; width: 12px; height: 8px; margin-right: 5px; vertical-align: -1px; }
+#guiHost { position: absolute; left: 10px; bottom: 10px; max-height: calc(100% - 50px); overflow: auto; }
+#guiHost .lil-gui { --width: 250px; }
+#showBtn { position: fixed; top: calc(10px + env(safe-area-inset-top, 0px)); right: max(10px, env(safe-area-inset-right, 0px)); z-index: 20; opacity: 0.35; }
+#showBtn:hover, #showBtn:focus-visible { opacity: 1; }
+body.bare header, body.bare .chrome { display: none !important; }
+@media (max-width: 760px) {
+  body { overflow: auto; height: auto; }
+  main { flex-direction: column; align-items: center; }
+  #mainWrap { width: 100% !important; height: auto !important; aspect-ratio: 16 / 9; }
+  #streetWrap { width: min(100%, 60vh * 0.5625) !important; height: auto !important; aspect-ratio: 9 / 16; }
+  #guiHost { display: none; }
+  .legend { display: none; }
+}
+</style>
+
+<header>
+  <h1>Living Block <span class="ver" id="verLabel">v0.11</span></h1>
+  <div class="group" role="group" aria-label="World view">
+    <span>View</span>
+    <button id="btnIso" aria-pressed="true">Isometric</button>
+    <button id="btnTop" aria-pressed="false">Top-down</button>
+    <button id="btnFish" aria-pressed="false" title="Bend the world view like a fisheye lens (tune it under Tweak, World fisheye)">Fisheye</button>
+  </div>
+  <div class="group">
+    <span>Version</span>
+    <select id="preset" aria-label="Version">
+      <option value="sketch">v0.11 · Sketch (your colors)</option>
+      <option value="night">v0.11b · Night (murmur-ish)</option>
+      <option value="hero">v0.11c · Hero (stamp trails)</option>
+    </select>
+  </div>
+  <div class="group">
+    <span>World</span>
+    <select id="worldSel" aria-label="World">
+      <option value="subway">Subway map (45° lines)</option>
+      <option value="roads">Roads (flat, colour routes)</option>
+      <option value="block">Block (3D towers)</option>
+    </select>
+  </div>
+  <div class="group" id="lookGroup">
+    <span>Heads</span>
+    <button id="btnSoft" aria-pressed="true">Soft 3D</button><button id="btnCel" aria-pressed="false">Cel</button>
+  </div>
+  <div class="group">
+    <span>Cast</span>
+    <select id="castSel" aria-label="Cast">
+      <option value="blocks">Blocks (cube, cones, sphere) · saved</option>
+      <option value="heads">Heads (3D, in wire balls)</option>
+      <option value="orbits">Orbits (fluid + rope) · saved</option>
+    </select>
+  </div>
+  <div class="group">
+    <span>Trail</span>
+    <select id="trailSel" aria-label="Trail style">
+      <option value="lines">Lines + nodes</option>
+      <option value="dots">Dots (murmur)</option>
+      <option value="stamps">Stamps</option>
+      <option value="off">Off (no trails)</option>
+    </select>
+  </div>
+  <div class="group" role="group" aria-label="Street cam position">
+    <span>Street cam</span>
+    <button id="camCorner" aria-pressed="true">Corner</button>
+    <button id="camHigh" aria-pressed="false">High</button>
+    <button id="camFar" aria-pressed="false">Far</button>
+  </div>
+  <div class="group">
+    <button id="btnPause" aria-pressed="false">Pause</button>
+    <button id="btnClear">Clear trails</button>
+    <button id="btnPhrases" aria-pressed="false" title="Hover a character to see what it is doing. This adds random pop-ups too.">Auto phrases</button>
+  </div>
+  <div class="spacer"></div>
+  <button id="btnHide">Hide controls <kbd>H</kbd></button>
+</header>
+<button id="showBtn" hidden>Show controls</button>
+
+<main>
+  <div class="view" id="mainWrap">
+    <canvas id="mainCanvas" aria-label="Living city block, world view"></canvas>
+    <div class="labels" id="mainLabels"></div>
+    <div class="tag chrome" id="mainTag">World · isometric · 16:9</div>
+    <div class="legend chrome" id="legend">
+      <span><i style="background:#ea3383;box-shadow:inset 0 -3px #f5c2f9"></i>Cube rolls · hops · slides</span>
+      <span><i style="background:#459af6;box-shadow:inset 0 -3px #72f5e4"></i>Blue cone hops · pivots</span>
+      <span><i style="background:#d79d36;box-shadow:inset 0 -3px #fef863"></i>Gold cone hops · pivots</span>
+      <span><i style="background:#54b642;box-shadow:inset 0 -3px #75fb81"></i>Sphere rolls · bumps</span>
+    </div>
+    <div id="guiHost" class="chrome"></div>
+  </div>
+  <div class="view" id="streetWrap">
+    <canvas id="streetCanvas" aria-label="Street camera view, 9 by 16"></canvas>
+    <div class="labels" id="streetLabels"></div>
+    <div class="cctv">
+      <div class="tl"><span class="rec">● REC</span>&nbsp; CAM 03 · CORNER</div>
+      <div class="br" id="clock">00:00:00</div>
+    </div>
+  </div>
+</main>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
+import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
+import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import GUI from 'three/addons/libs/lil-gui.module.min.js';
+import { TessellateModifier } from 'three/addons/modifiers/TessellateModifier.js';
+import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+const V3 = THREE.Vector3, UP = new V3(0, 1, 0);
+const rand = (a, b) => a + Math.random() * (b - a);
+const pick = (arr) => arr[(Math.random() * arr.length) | 0];
+
+// ---------- The cast: primary + secondary color, face, and what they say ----------
+const CHARS = {
+  // orbit cast (v0.6)
+  orbBlue:  { P: '#459af6', S: '#72f5e4', face: 'burst', facing: -1, neck: false, phrases: ['PULLING {n} NEW TRIALS', 'FETCHING…', '{n} PAPERS PULLED', 'SYNCING…'] },
+  orbPink:  { P: '#ea3383', S: '#f5c2f9', face: 'dodecagon', facing: 1, neck: false, phrases: ['CHECKING…', 'VERIFYING SOURCE', '{n} CLAIMS CHECKED', 'FLAGGED 1 ISSUE'] },
+  orbGreen: { P: '#54b642', S: '#75fb81', face: 'hexagon', facing: -1, neck: false, phrases: ['MAPPING…', '{n} STUDIES FOUND', 'LINKING RESULTS', 'TRACING A PATH'] },
+  // facing: which way the drawn face looks (1 = right, -1 = left); look: 'down' or 'up' as drawn
+  cube:     { P: '#ea3383', S: '#f5c2f9', face: 'dodecagon', facing: 1, look: 'down',
+              phrases: ['CHECKING…', 'VERIFYING SOURCE', 'CROSS-CHECKING…', '{n} CLAIMS CHECKED', 'FLAGGED 1 ISSUE'] },
+  coneBlue: { P: '#459af6', S: '#72f5e4', face: 'burst', facing: -1, look: 'down',
+              phrases: ['PULLING {n} NEW TRIALS', 'FETCHING…', 'LOADING DATA…', '{n} PAPERS PULLED'] },
+  coneGold: { P: '#d79d36', S: '#fef863', face: 'quatrefoil', facing: 1, look: 'up',
+              phrases: ['LOOKING...', 'SEARCHING...', 'SCANNING INDEX…', 'FOUND A LEAD', 'OK,'] },
+  sphere:   { P: '#54b642', S: '#75fb81', face: 'octagon', facing: -1, look: 'up',
+              phrases: ['{n} STUDIES FOUND', 'SORTING…', 'SUMMARIZING…', '{n} THEMES MERGED'] },
+};
+for (const c of Object.values(CHARS)) { c.cP = new THREE.Color(c.P); c.cS = new THREE.Color(c.S); }
+
+// ---------- Tweakable settings (the "knobs") ----------
+const S = {
+  tempo: 1, trailStyle: 'lines', trailLife: 6, trailWidth: 2.4,
+  cubes: 6, cones: 8, spheres: 6, orbs: 10, heads: 16, headSize: 1.5, headFaceCam: 0.7, bubbleFill: 1, headWobble: 1, roadSpeed: 1, switchChance: 0.45, grow: true, growEvery: 4, growMax: 60, headsMax: 40, growCam: true, world: (() => { try { return localStorage.getItem('lb-world11') || 'subway'; } catch (e) { return 'subway'; } })(), ballLines: 2, arrowShare: 0.5, floatOften: 1, headLook: (() => { try { return localStorage.getItem('lb-look') || 'soft'; } catch (e) { return 'soft'; } })(), hill: false, rollShare: 0.6, cast: (() => { try { return localStorage.getItem('lb-cast08') || 'heads'; } catch (e) { return 'heads'; } })(),
+  cubeBurst: 4, cubePause: 0.8,
+  coneHopHeight: 0.55, coneTurn: 110,
+  sphereSpeed: 1.1,
+  phraseRate: 1, phraseHold: 2.4,
+  focus: 4.6, blur: 0.006, fisheye: 0.35, camSway: 1, mainFish: false, mainFishK: 0.3, mainVig: 0.35, mainFringe: 0.0008,
+  contribute: 1, moon: 0.12, lamps: 14, dots: 1, lattice: 1, charGlow: 0.35, bloom: 0.35, windowsLit: 0,
+};
+const PRESETS = {
+  sketch: { bg: '#cccccc', ground: '#cccccc', street: '#c3c3c3', building: '#e9e8e5', buildingEdge: '#9b9a98', outline: '#a9a9a9', trails: 'lines', points: false, label: 'v0.11' },
+  night:  { night: true, bg: '#060607', ground: '#0b0b0d', street: '#111114', building: '#141118', buildingEdge: '#2a2236', outline: '#3a3a40', trails: 'dots', points: false, label: 'v0.11b' },
+  hero:   { bg: '#ffffff', ground: '#ffffff', street: '#ffffff', building: '#ffffff', buildingEdge: '#d9d9d9', outline: '#d4d4d4', trails: 'stamps', points: false, label: 'v0.11c' },
+};
+let P = PRESETS.sketch;
+
+// ---------- Scene + placeholder city block ----------
+const scene = new THREE.Scene();
+const HALF = 10;
+const buildings = [                       // x, z (min corner), w, d, h  -> placeholder blocks, swap for Will's design later
+  { x: -9, z: -9, w: 6, d: 6, h: 3 }, { x: 3, z: -9, w: 6, d: 5, h: 5 },
+  { x: -9, z: 3, w: 5, d: 6, h: 4 }, { x: 3.5, z: 3.5, w: 5.5, d: 5.5, h: 2.5 },
+];
+const groundMat = new THREE.MeshBasicMaterial({ color: P.ground });
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(HALF * 2 + 12, HALF * 2 + 12), groundMat);
+ground.rotation.x = -Math.PI / 2; scene.add(ground);
+const streetMat = new THREE.MeshBasicMaterial({ color: P.street });
+const streetMeshes = [];
+for (const [w, d] of [[HALF * 2, 6], [6, HALF * 2]]) {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), streetMat);
+  m.rotation.x = -Math.PI / 2; m.position.y = 0.002; scene.add(m); streetMeshes.push(m);
+}
+const hemi = new THREE.HemisphereLight(0xffffff, 0x888888, 2.2); scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xffffff, 1.4); sun.position.set(4, 10, 6); scene.add(sun);
+
+const bMat = new THREE.MeshLambertMaterial({ color: P.building });
+const bEdgeMat = new THREE.LineBasicMaterial({ color: P.buildingEdge });
+const noDepth = [];                       // things hidden from the depth-of-field depth pass
+const cloudGroup = new THREE.Group(); scene.add(cloudGroup); noDepth.push(cloudGroup);
+const cityGroup = new THREE.Group(); scene.add(cityGroup);   // the 3D blocks (hidden in the Roads world)
+for (const b of buildings) {
+  const g = new THREE.BoxGeometry(b.w, b.h, b.d);
+  const m = new THREE.Mesh(g, bMat); m.position.set(b.x + b.w / 2, b.h / 2, b.z + b.d / 2); cityGroup.add(m);
+  const e = new THREE.LineSegments(new THREE.EdgesGeometry(g), bEdgeMat); e.position.copy(m.position); cityGroup.add(e);
+}
+cloudGroup.visible = false;
+
+// ---------- Night kit: the lighting rule for night (after murmur) ----------
+// The light comes from the city itself, drawn as even, regular linework in our palette only:
+// 1. Every building is wrapped in a fine square grid of glowing lines (one palette color per block), over a faint
+//    low-poly triangle mesh, so it reads as a lantern made of light.
+// 2. The ground and street are a faint low-poly triangle mesh on near-black.
+// 3. Sidewalks ring each block as an even dot grid, brightest along the curb.
+// 4. Blocks spill a soft pool of their color onto the street. Characters dim their fills so outlines carry them.
+const groundLitMat = new THREE.MeshLambertMaterial({ color: '#060607' }), streetLitMat = new THREE.MeshLambertMaterial({ color: '#08080a' });
+const nightGroup = new THREE.Group(); scene.add(nightGroup); nightGroup.visible = false;
+const nightPoints = new THREE.Group(); nightGroup.add(nightPoints); noDepth.push(nightPoints);
+const BLOCK_HUES = [['#d79d36', '#fef863'], ['#ea3383', '#f5c2f9'], ['#d79d36', '#fef863'], ['#459af6', '#72f5e4']];   // our palette only
+const pointMats = [], wireMats = [];
+const dotTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 32; const g = c.getContext('2d');
+  g.fillStyle = '#fff'; g.beginPath(); g.arc(16, 16, 13, 0, Math.PI * 2); g.fill(); const t = new THREE.CanvasTexture(c); return t; })();
+function pointsMesh(pos, col, size) {
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  const m = new THREE.PointsMaterial({ size, map: dotTex, alphaTest: 0.4, vertexColors: true, sizeAttenuation: false, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
+  m.userData.base = size; pointMats.push(m); return new THREE.Points(g, m);
+}
+function linesMesh(pos, color, opacity, additive = true) {
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  const m = new THREE.LineBasicMaterial({ color, transparent: true, opacity, depthWrite: false, blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending });
+  m.userData.base = opacity; wireMats.push(m); return new THREE.LineSegments(g, m);
+}
+const glowTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
+  const gr = g.createRadialGradient(64, 64, 0, 64, 64, 64); gr.addColorStop(0, 'rgba(255,255,255,0.9)'); gr.addColorStop(0.35, 'rgba(255,255,255,0.35)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 128, 128); return new THREE.CanvasTexture(c); })();
+const spillTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d'); const im = g.createImageData(128, 128);
+  for (let y = 0; y < 128; y++) for (let x = 0; x < 128; x++) {
+    const u = Math.abs(x - 63.5) / 63.5, v = Math.abs(y - 63.5) / 63.5, d = Math.pow(Math.pow(u, 6) + Math.pow(v, 6), 1 / 6);
+    const a = d < 0.62 ? 0 : Math.pow(Math.max(0, 1 - (d - 0.62) / 0.38), 2.2); im.data.set([255, 255, 255, a * 255], (y * 128 + x) * 4); }
+  g.putImageData(im, 0, 0); return new THREE.CanvasTexture(c); })();
+const lampLights = [], lampPools = [];
+const SW = 0.75, CELL = 0.14;
+// ground: faint low-poly triangle mesh over everything
+{
+  const step = 0.8, n = Math.ceil((HALF * 2 + 4) / step), jx = (i, j) => (Math.sin(i * 12.9898 + j * 78.233) * 43758.5453 % 1) * 0.3;
+  const P2 = (i, j) => [-HALF - 2 + i * step + jx(i, j), -HALF - 2 + j * step + jx(j + 7, i + 3)];
+  const pos = [];
+  for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+    const a = P2(i, j), b = P2(i + 1, j), c = P2(i, j + 1), d = P2(i + 1, j + 1), diag = (i + j) % 2 ? [a, d] : [b, c];
+    for (const [p, q] of [[a, b], [a, c], diag]) pos.push(p[0], 0.004, p[1], q[0], 0.004, q[1]);
+  }
+  nightGroup.add(linesMesh(pos, '#3a3440', 0.55, false));
+}
+buildings.forEach((b, bi) => {
+  const [hp, hs] = BLOCK_HUES[bi % BLOCK_HUES.length], hue = new THREE.Color(hp);
+  const x0 = b.x - 0.015, x1 = b.x + b.w + 0.015, z0 = b.z - 0.015, z1 = b.z + b.d + 0.015, top = b.h + 0.015;
+  // 1. even square grid on every face + roof
+  const grid = [], tri = [];
+  for (let y = 0; y <= b.h + 1e-4; y += CELL) grid.push(x0, y, z0, x1, y, z0, x1, y, z0, x1, y, z1, x1, y, z1, x0, y, z1, x0, y, z1, x0, y, z0);
+  for (let x = x0; x <= x1 + 1e-4; x += CELL) grid.push(x, 0, z0, x, top, z0, x, 0, z1, x, top, z1, x, top, z0, x, top, z1);
+  for (let z = z0; z <= z1 + 1e-4; z += CELL) grid.push(x0, 0, z, x0, top, z, x1, 0, z, x1, top, z, x0, top, z, x1, top, z);
+  nightGroup.add(linesMesh(grid, hp, 0.42));
+  // faint low-poly triangles behind the grid (every 4 cells)
+  const T = CELL * 4;
+  for (let y = 0; y + T <= b.h + 1e-4; y += T) {
+    for (let x = x0; x + T <= x1 + 1e-4; x += T) tri.push(x, y, z0, x + T, y + T, z0, x, y, z1, x + T, y + T, z1);
+    for (let z = z0; z + T <= z1 + 1e-4; z += T) tri.push(x0, y, z, x0, y + T, z + T, x1, y, z, x1, y + T, z + T);
+  }
+  nightGroup.add(linesMesh(tri, hs, 0.16));
+  // 3. sidewalk: dark slab + even dot grid, brightest along the curb
+  const sx = b.x - SW, sz = b.z - SW, sw = b.w + SW * 2, sd = b.d + SW * 2;
+  const slab = new THREE.Mesh(new THREE.BoxGeometry(sw, 0.05, sd), new THREE.MeshLambertMaterial({ color: '#100e10' }));
+  slab.position.set(sx + sw / 2, 0.025, sz + sd / 2); nightGroup.add(slab);
+  const dp = [], dc = [], gap = 0.15, cs = new THREE.Color(hs), tc = new THREE.Color();
+  for (let x = sx; x <= sx + sw + 1e-3; x += gap) for (let z = sz; z <= sz + sd + 1e-3; z += gap) {
+    if (x > b.x - 0.05 && x < b.x + b.w + 0.05 && z > b.z - 0.05 && z < b.z + b.d + 0.05) continue;
+    const edge = Math.min(Math.abs(x - sx), Math.abs(x - sx - sw), Math.abs(z - sz), Math.abs(z - sz - sd)) < gap * 0.6;
+    tc.copy(edge ? cs : hue).multiplyScalar(edge ? 0.9 : 0.35); dp.push(x, 0.055, z); dc.push(tc.r, tc.g, tc.b);
+  }
+  nightPoints.add(pointsMesh(dp, dc, 2.4));
+  // 4. soft spill on the street around the block
+  const spill = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2),
+    new THREE.MeshBasicMaterial({ map: spillTex, color: hue, transparent: true, opacity: 0.3, blending: THREE.AdditiveBlending, depthWrite: false }));
+  spill.scale.set(sw / 0.62 * 0.85, 1, sd / 0.62 * 0.85); spill.position.set(sx + sw / 2, 0.012, sz + sd / 2); nightGroup.add(spill); lampPools.push(spill);
+  for (const [px, pz] of [[sx, sz], [sx + sw, sz + sd], [sx + sw, sz], [sx, sz + sd]]) {
+    const L = new THREE.PointLight(hue, 6, 4.5, 1.6); L.position.set(px, 0.6, pz); nightGroup.add(L); lampLights.push(L);
+  }
+});
+const windows = new THREE.Group();        // (kept so the old toggle code still works; murmur has no lit windows)
+let nightOn = false;
+
+const roadsWorld = () => S.world === 'roads' || S.world === 'subway';
+function isFree(x, z, r) {
+  if (Math.abs(x) > HALF - r || Math.abs(z) > HALF - r) return false;
+  if (S.hill && x * x + z * z < (HILL.R + r) * (HILL.R + r)) return false;      // the hill is only climbed on the paths
+  if (!roadsWorld()) for (const b of buildings) if (x > b.x - r && x < b.x + b.w + r && z > b.z - r && z < b.z + b.d + r) return false;
+  return true;
+}
+const nearBuilding = (p, r) => !isFree(p.x, p.z, r) && Math.abs(p.x) < HALF - r && Math.abs(p.z) < HALF - r;
+function randomFree(r) { for (let i = 0; i < 500; i++) { const x = rand(-HALF, HALF), z = rand(-HALF, HALF); if (isFree(x, z, r)) return new V3(x, 0, z); } return new V3(); }
+// ---------- The hill: a low-poly mound in the middle of the crossing, with two paths spiralling up to the pile ----------
+const HILL = { R: 2.3, H: 1.15, top: 0.8 };
+function hillY(x, z) {                      // ground height anywhere (0 off the hill)
+  if (!S.hill) return 0;
+  const r = Math.hypot(x, z); if (r >= HILL.R) return 0; if (r <= HILL.top) return HILL.H;
+  const u = (r - HILL.top) / (HILL.R - HILL.top); return HILL.H * (1 - u * u * (3 - 2 * u));
+}
+const hillGroup = new THREE.Group(); scene.add(hillGroup);
+const hillMat = new THREE.MeshLambertMaterial({ color: '#d4d3d0', flatShading: true });
+const hillEdgeMat = new THREE.LineBasicMaterial({ color: '#9b9a98', transparent: true, opacity: 0.5 });
+{
+  const RINGS = [0, 0.45, HILL.top, 1.25, 1.7, 2.05, HILL.R], SEG = 11, pos = [], idx = [];
+  const jit = RINGS.map((r, i) => i === 0 ? 0 : (i % 2 ? 0.5 : 0) * Math.PI * 2 / SEG);   // stagger rings so facets read as low-poly
+  RINGS.forEach((r, i) => { if (i === 0) { pos.push(0, HILL.H, 0); return; }
+    for (let k = 0; k < SEG; k++) { const a = jit[i] + k * Math.PI * 2 / SEG + Math.sin(k * 7.3 + i) * 0.06; const x = Math.cos(a) * r, z = Math.sin(a) * r; pos.push(x, i === RINGS.length - 1 ? 0 : hillY(x, z), z); } });
+  for (let k = 0; k < SEG; k++) idx.push(0, 1 + (k + 1) % SEG, 1 + k);
+  for (let i = 1; i < RINGS.length - 1; i++) { const a0 = 1 + (i - 1) * SEG, b0 = 1 + i * SEG;
+    for (let k = 0; k < SEG; k++) { const a = a0 + k, a1 = a0 + (k + 1) % SEG, b = b0 + k, b1 = b0 + (k + 1) % SEG; idx.push(a, a1, b, a1, b1, b); } }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
+  hillGroup.add(new THREE.Mesh(g, hillMat));
+  hillGroup.add(new THREE.LineSegments(new THREE.WireframeGeometry(g), hillEdgeMat));
+  hillGroup.userData.wire = g;
+}
+// two designated paths: start on the street at opposite sides, wind 3/4 of the way round, finish at the edge of the summit
+const PATHS = [0, Math.PI].map(a0 => { const pts = [];
+  for (let i = 0; i <= 40; i++) { const t = i / 40, a = a0 + t * Math.PI * 1.35, r = (HILL.R + 0.35) * (1 - t) + 0.72 * t;
+    const x = Math.cos(a) * r, z = Math.sin(a) * r; pts.push(new V3(x, hillY(x, z), z)); }
+  return pts; });
+const pathDotMat = new THREE.MeshBasicMaterial({ color: '#8d8c89' });
+const pathDotGeo = new THREE.CircleGeometry(0.045, 10).rotateX(-Math.PI / 2);
+for (const path of PATHS) for (let i = 0; i < path.length; i++) {
+  if (i % 1) continue; const p = path[i]; const m = new THREE.Mesh(pathDotGeo, pathDotMat); m.position.set(p.x, p.y + 0.03, p.z); hillGroup.add(m); }
+// night: the hill is skinned in dots like everything else, and the paths glow
+{
+  const pts = [], col = [], c = new THREE.Color();
+  for (const path of PATHS) for (let i = 0; i < path.length - 1; i++) for (let k = 0; k < 4; k++) {
+    if (k % 2) continue; const p = path[i].clone().lerp(path[i + 1], k / 4); pts.push(p.x, hillY(p.x, p.z) + 0.04, p.z); c.set('#fef863').multiplyScalar(0.8); col.push(c.r, c.g, c.b); }
+  const hillDots = pointsMesh(pts, col, 2); nightPoints.add(hillDots); hillGroup.userData.dots = hillDots;
+}
+// the pile on the summit: every contribution sticks to it, so it grows into a lumpy mass
+const massGroup = new THREE.Group(); massGroup.position.set(0, HILL.H, 0); scene.add(massGroup);
+const MASS_MAX = 140, massBits = [];
+const bitGeo = { cube: new THREE.BoxGeometry(0.15, 0.15, 0.15), orb: new THREE.SphereGeometry(0.085, 12, 8) };
+function bitMesh(kind, color) { const m = new THREE.Mesh(bitGeo[kind], new THREE.MeshLambertMaterial({ color, emissive: color, emissiveIntensity: 0.25 })); m.userData.kind = kind; return m; }
+function massSlot() {                        // the next free spot on the surface of the pile, low and to the sides first
+  const n = massBits.length, rad = 0.09 + 0.085 * Math.cbrt(n + 1);
+  const a = Math.random() * Math.PI * 2, y = Math.pow(Math.random(), 1.6);
+  return new V3(Math.cos(a) * Math.sqrt(1 - y * y) * rad, 0.07 + y * rad * 0.95, Math.sin(a) * Math.sqrt(1 - y * y) * rad);
+}
+// loose bits lying around the streets for anyone who feels like contributing
+const looseBits = [];
+const BIT_INK = '#f4f1ea';
+function spawnBit() { const p = randomFree(0.4), kind = Math.random() < 0.5 ? 'cube' : 'orb', m = bitMesh(kind, BIT_INK);
+  m.position.set(p.x, 0.09, p.z); scene.add(m); looseBits.push({ m, kind, p, phase: Math.random() * 6, taken: false }); }
+const flying = [];                           // bits on their way from a character into the pile
+function updateHill(dt, now) {
+  while (looseBits.length < 7) spawnBit();
+  for (const b of looseBits) { b.m.visible = S.cast !== 'orbits' && S.hill; b.m.position.y = 0.1 + Math.sin(now * 2 + b.phase) * 0.03; b.m.rotation.y += dt * 0.8; }
+  for (let i = flying.length - 1; i >= 0; i--) { const f = flying[i]; f.t += dt / 0.55; const t = Math.min(1, f.t);
+    f.m.position.lerpVectors(f.from, f.to, t); f.m.position.y += Math.sin(Math.PI * t) * 0.45;
+    if (t >= 1) { flying.splice(i, 1); f.m.position.copy(f.slot); massGroup.add(f.m); massBits.push(f.m);
+      if (massBits.length > MASS_MAX) { const old = massBits.shift(); massGroup.remove(old); old.material.dispose(); } } }
+  massGroup.rotation.y += dt * 0.05;
+}
+
+// ---------- Trails: each line carries its character's color; every point remembers when it was made ----------
+const MAX_SEG = 24000;
+const trailGeo = new LineSegmentsGeometry();
+trailGeo.setPositions(new Float32Array(MAX_SEG * 6)); trailGeo.setColors(new Float32Array(MAX_SEG * 6));
+const trailMat = new LineMaterial({ linewidth: S.trailWidth, vertexColors: true, worldUnits: false });
+const trailMesh = new LineSegments2(trailGeo, trailMat); trailMesh.frustumCulled = false; trailMesh.position.y = 0.012;
+scene.add(trailMesh); noDepth.push(trailMesh);
+let trails = [];                          // each: { pts: [{p, t}], c: THREE.Color }
+const cGround = new THREE.Color(), cTmp = new THREE.Color();
+function ageColor(age, base, out) {       // full color, then melts into the ground
+  const u = age / S.trailLife; out.copy(base);
+  if (u > 0.3) out.lerp(cGround, Math.min(1, (u - 0.3) / 0.7));
+  return out;
+}
+function addLine(points, c) { const l = { pts: points, c }; trails.push(l); return l; }
+function addRing(center, r, t, c, a0 = 0, a1 = Math.PI * 2, steps = 14) {
+  const pts = []; for (let i = 0; i <= steps; i++) { const a = a0 + (a1 - a0) * i / steps; pts.push({ p: new V3(center.x + Math.cos(a) * r, 0, center.z + Math.sin(a) * r), t }); }
+  return addLine(pts, c);
+}
+const addNode = (p, t, c) => { const l = addRing(p, 0.065, t, c, 0, Math.PI * 2, 12); l.node = p.clone(); return l; };
+// dotted style (murmur): the same trails, drawn as evenly spaced round dots; nodes become one bigger dot
+const MAX_DOT = 40000, dotGeo = new THREE.BufferGeometry();
+dotGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(MAX_DOT * 3), 3));
+dotGeo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(MAX_DOT * 3), 3));
+dotGeo.setAttribute('size', new THREE.BufferAttribute(new Float32Array(MAX_DOT), 1));
+const dotMat = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, vertexColors: true,
+  uniforms: { px: { value: 1 } },
+  vertexShader: 'attribute float size; varying vec3 vC; uniform float px; void main(){ vC = color; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); gl_PointSize = size * px; }',
+  fragmentShader: 'varying vec3 vC; void main(){ vec2 d = gl_PointCoord - 0.5; if (dot(d,d) > 0.25) discard; gl_FragColor = vec4(vC,1.0);\n#include <colorspace_fragment>\n}' });
+const dotMesh = new THREE.Points(dotGeo, dotMat); dotMesh.frustumCulled = false; dotMesh.position.y = 0.014; scene.add(dotMesh); noDepth.push(dotMesh);
+const DOT_GAP = 0.17;
+function updateDots(now) {
+  const life = S.trailLife, pos = dotGeo.attributes.position.array, col = dotGeo.attributes.color.array, siz = dotGeo.attributes.size.array;
+  dotMat.uniforms.px.value = Math.min(2, devicePixelRatio);
+  let n = 0; const put = (p, age, c, sz) => { if (n >= MAX_DOT || age >= life) return; pos.set([p.x, p.y, p.z], n * 3); ageColor(age, c, cTmp); col.set([cTmp.r, cTmp.g, cTmp.b], n * 3); siz[n] = sz; n++; };
+  const tmp = new V3();
+  for (const l of trails) {
+    if (l.node) { put(l.node, now - l.pts[0].t, l.c, S.trailWidth * 2.6); continue; }
+    let carry = 0;
+    for (let i = 0; i < l.pts.length - 1; i++) {
+      const a = l.pts[i], b = l.pts[i + 1], L = a.p.distanceTo(b.p);
+      let s = carry; for (; s <= L; s += DOT_GAP) { const k = L ? s / L : 0; tmp.lerpVectors(a.p, b.p, k); put(tmp, now - (a.t + (b.t - a.t) * k), l.c, S.trailWidth * 1.7); }
+      carry = s - L;
+    }
+  }
+  dotGeo.attributes.position.needsUpdate = dotGeo.attributes.color.needsUpdate = dotGeo.attributes.size.needsUpdate = true; dotGeo.setDrawRange(0, n);
+}
+function updateTrails(now) {
+  const life = S.trailLife; trails = trails.filter(l => now - l.pts[l.pts.length - 1].t < life);
+  const posArr = trailGeo.attributes.instanceStart.data.array, colArr = trailGeo.attributes.instanceColorStart.data.array;
+  let n = 0;
+  outer: for (const l of trails) for (let i = 0; i < l.pts.length - 1; i++) {
+    if (n >= MAX_SEG) break outer;
+    const a = l.pts[i], b = l.pts[i + 1], aa = now - a.t, ab = now - b.t;
+    if (aa >= life && ab >= life) continue;
+    posArr.set([a.p.x, a.p.y, a.p.z, b.p.x, b.p.y, b.p.z], n * 6);
+    ageColor(aa, l.c, cTmp); colArr[n * 6] = cTmp.r; colArr[n * 6 + 1] = cTmp.g; colArr[n * 6 + 2] = cTmp.b;
+    ageColor(ab, l.c, cTmp); colArr[n * 6 + 3] = cTmp.r; colArr[n * 6 + 4] = cTmp.g; colArr[n * 6 + 5] = cTmp.b;
+    n++;
+  }
+  trailGeo.attributes.instanceStart.data.needsUpdate = true; trailGeo.attributes.instanceColorStart.data.needsUpdate = true;
+  trailGeo.instanceCount = n;
+  const off = S.trailStyle === 'off', dots = S.trailStyle === 'dots'; trailMesh.visible = !dots && !off; dotMesh.visible = dots && !off;
+  if (dots && !off) updateDots(now);
+}
+
+// ---------- Stamp trails (style 2): filled footprints with a thin grey outline, each shape fading its own way ----------
+// Outlines are drawn as a grey shape under a ground-colored shape under the fill, so touching stamps share one outer outline.
+const stampGroup = new THREE.Group(); scene.add(stampGroup); noDepth.push(stampGroup);
+const SQ = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), DISC = new THREE.CircleGeometry(1, 48).rotateX(-Math.PI / 2);
+const gapMat = new THREE.MeshBasicMaterial({ color: P.ground, depthWrite: false });
+const cOutline = new THREE.Color();
+let stamps = [];
+function addStamp(kind, center, size, ch, now) {
+  const geo = kind === 'sq' ? SQ : DISC, pad = kind === 'sq' ? 0.05 : 0.08, line = kind === 'sq' ? 0.03 : 0.025;
+  const lineMat = new THREE.MeshBasicMaterial({ color: cOutline, depthWrite: false });
+  const fillMat = new THREE.MeshBasicMaterial({ color: ch.P, depthWrite: false });
+  const mk = (mat, extra, order, y) => { const m = new THREE.Mesh(geo, mat); m.position.set(center.x, y, center.z);
+    const sc = size + extra; m.scale.set(sc, 1, sc); m.renderOrder = order; stampGroup.add(m); return m; };
+  stamps.push({ t: now, base: ch.cP, lineMat, fillMat, meshes: [mk(lineMat, pad + line, 1, 0.004), mk(gapMat, pad, 2, 0.005), mk(fillMat, 0, 3, 0.006)] });
+}
+class Ribbon {                            // the sphere's gradient smear
+  constructor(ch, width) {
+    this.ch = ch; this.w = width; this.max = 200; this.pts = [];
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(this.max * 6), 3));
+    g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(this.max * 6), 3));
+    const idx = []; for (let i = 0; i < this.max - 1; i++) { const a = i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
+    g.setIndex(idx); this.geo = g;
+    this.mesh = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true, depthWrite: false, side: THREE.DoubleSide }));
+    this.mesh.frustumCulled = false; this.mesh.renderOrder = 4; this.mesh.position.y = 0.007; stampGroup.add(this.mesh);
+  }
+  push(p, now) { const last = this.pts[this.pts.length - 1]; if (last && last.p.distanceTo(p) < 0.04) { return; } this.pts.push({ p: p.clone(), t: now }); if (this.pts.length > this.max) this.pts.shift(); }
+  update(now, life) {
+    this.pts = this.pts.filter(q => now - q.t < life);
+    const pos = this.geo.attributes.position.array, col = this.geo.attributes.color.array, n = this.pts.length;
+    for (let i = 0; i < n; i++) {
+      const a = this.pts[Math.max(0, i - 1)].p, b = this.pts[Math.min(n - 1, i + 1)].p, q = this.pts[i];
+      let dx = b.x - a.x, dz = b.z - a.z; const L = Math.hypot(dx, dz) || 1; dx /= L; dz /= L;
+      const ox = -dz * this.w / 2, oz = dx * this.w / 2;
+      pos.set([q.p.x + ox, 0, q.p.z + oz, q.p.x - ox, 0, q.p.z - oz], i * 6);
+      cTmp.copy(this.ch.cP).lerp(cGround, Math.min(1, (now - q.t) / life));
+      col.set([cTmp.r, cTmp.g, cTmp.b, cTmp.r, cTmp.g, cTmp.b], i * 6);
+    }
+    this.geo.attributes.position.needsUpdate = true; this.geo.attributes.color.needsUpdate = true;
+    this.geo.setDrawRange(0, Math.max(0, n - 1) * 6);
+  }
+  clear() { this.pts = []; }
+  dispose() { stampGroup.remove(this.mesh); this.geo.dispose(); }
+}
+function updateStamps(now) {
+  const life = S.trailLife;
+  stamps = stamps.filter(s => {
+    const u = (now - s.t) / life;
+    if (u >= 1) { s.meshes.forEach(m => stampGroup.remove(m)); s.lineMat.dispose(); s.fillMat.dispose(); return false; }
+    s.fillMat.color.copy(s.base).lerp(cGround, u); s.lineMat.color.copy(cOutline).lerp(cGround, u * u);
+    return true;
+  });
+}
+const stampsOn = () => S.trailStyle === 'stamps';
+
+// ---------- Heads + faces ----------
+// Measured pixel-by-pixel off Will's drawings (pink + blue front view, and the four-character sheet).
+// Unit U = the head's outer radius (burst tips = 1). Screen coords: +x right, +y down. Drawn facing right.
+const HEADS = {
+  dodecagon:  { kind: 'poly', n: 12, tipDeg: 15, R: 0.94, sag: 0.977 },      // 12 sides, flat top, very slightly caved
+  burst:      { kind: 'scallop', n: 12, tipDeg: 15, R: 1.0, valley: 0.85 },  // 12 sharp tips, round scoops between
+  octagon:    { kind: 'scallop', n: 8, tipDeg: 22.5, R: 1.0, valley: 0.86 }, // 8 tips, shallow scoops, flat top
+  quatrefoil: { kind: 'lobes', d: 0.348, r: 0.645 },                          // four overlapping circles
+  hexagon:    { kind: 'poly', n: 6, tipDeg: -90, R: 1.0, sag: 1.0 },          // point-up hexagon (orbit cast)
+};
+// THE FACE RULE: one face for everyone, same size on every head, never stretched or split.
+// It sits on the side the character is heading (mirrored when heading left), pushed out toward the rim
+// the way Will places it, not centered. Positions below are where the pink cube's face sits in his drawing.
+const FACE = {
+  eyes: [[0.381, 0.039], [0.619, -0.063]], eyeTilt: -55,      // dog-bone eyes; long axis leans up-right
+  eyeProfile: [0.0793, 0.0687, 0.0607, 0.0577, 0.0582, 0.061, 0.071, 0.0837, 0.0982, 0.1097, 0.1127, 0.1018, 0.0893, 0.0916, 0.1045, 0.1065, 0.0997, 0.0903],
+  beak: [[0.625, 0.315], [0.372, 0.428], [0.495, 0.618]], line: 0.022,
+  outline: 0.026,
+};
+// where each character's face sits relative to the pink cube's placement (dx, dy in U), measured from Will's front views
+const FACE_OFF = { dodecagon: [0, 0], burst: [-0.018, 0.22], octagon: [-0.115, -0.04], quatrefoil: [0, 0.14], hexagon: [0.222, 0.038, 0.75] };   // [dx, dy, scale]
+// FRONT-ON (heading straight at the camera): the face sits centred and high, two rounded four-point eyes level, beak an
+// upside-down triangle. Measured off the blue burst in Will's orbit sheet.
+const FRONT = { eyes: [[-0.158, -0.44], [0.158, -0.44]], eyeScale: 0.88, beak: [[-0.178, 0.006], [0.178, 0.006], [0, 0.3]] };
+const FRONT_OFF = { burst: [0, 0, 1], dodecagon: [0, 0.05, 1], hexagon: [0, 0.02, 0.85], octagon: [0, 0.05, 0.95], quatrefoil: [0, 0.12, 0.95] };
+// BACK VIEW (walking away from the camera): no beak, one rounded four-point eye peeking at the upper rim, measured from
+// Will's side sheet (gold + green); pink + blue use the same rule at their own rim.
+const BACK_EYE = { dodecagon: [0.64, -0.46], burst: [0.6, -0.42], octagon: [0.765, -0.286], quatrefoil: [0.65, -0.625], hexagon: [0.58, -0.4] };
+function backEyePath(g, U) {
+  g.beginPath();
+  for (let i = 0; i <= 96; i++) { const a = i / 96 * Math.PI * 2, r = 0.11 * U * (1 + 0.23 * Math.cos(4 * a));
+    i ? g.lineTo(Math.cos(a) * r, Math.sin(a) * r) : g.moveTo(Math.cos(a) * r, Math.sin(a) * r); }
+  g.closePath();
+}
+function headPath(g, h, U) {
+  g.beginPath();
+  if (h.kind === 'lobes') {
+    const d = h.d, r = h.r, k = Math.sqrt(r * r - d * d), span = Math.PI / 4 + Math.atan2(d, k);
+    for (const [sx, sy] of [[1, 1], [-1, 1], [-1, -1], [1, -1]]) {   // each lobe's outer arc, between the notches either side
+      const dir = Math.atan2(sy, sx); g.arc(sx * d * U, sy * d * U, r * U, dir - span, dir + span, false);
+    }
+    g.closePath(); return;
+  }
+  const n = h.n, step = Math.PI * 2 / n, t0 = h.tipDeg * Math.PI / 180;   // tips at tipDeg + k·step (screen angles)
+  for (let i = 0; i < n; i++) {
+    const a0 = t0 + i * step, a1 = a0 + step, am = a0 + step / 2;
+    const x0 = Math.cos(a0) * h.R * U, y0 = Math.sin(a0) * h.R * U, x1 = Math.cos(a1) * h.R * U, y1 = Math.sin(a1) * h.R * U;
+    if (i === 0) g.moveTo(x0, y0);
+    if (h.kind === 'poly') {
+      const c = h.R * Math.cos(step / 2) * (2 * h.sag - 1) * U;   // control point so the side's middle sits at sag × apothem
+      g.quadraticCurveTo(Math.cos(am) * c, Math.sin(am) * c, x1, y1);
+    } else {
+      // circular scoop through both tips whose deepest point is at valley × R
+      const chordMid = h.R * Math.cos(step / 2), s = chordMid - h.valley, half = h.R * Math.sin(step / 2);
+      const rho = (half * half + s * s) / (2 * s), cd = chordMid + (rho - s);
+      const cx = Math.cos(am) * cd * U, cy = Math.sin(am) * cd * U;
+      const b0 = Math.atan2(y0 - cy, x0 - cx), b1 = Math.atan2(y1 - cy, x1 - cx);
+      let da = b1 - b0; while (da > Math.PI) da -= 2 * Math.PI; while (da < -Math.PI) da += 2 * Math.PI;
+      g.arc(cx, cy, rho * U, b0, b0 + da, da < 0);
+    }
+  }
+  g.closePath();
+}
+function eyePath(g, U) {
+  const p = FACE.eyeProfile, N = 36, pts = [];
+  for (let i = 0; i < N; i++) { const a = -Math.PI + i * Math.PI * 2 / N; const r = p[i % 18] * U; pts.push([Math.cos(a) * r, Math.sin(a) * r]); }
+  g.beginPath();                           // smooth closed curve through the measured outline (Catmull-Rom)
+  for (let i = 0; i < N; i++) {
+    const p0 = pts[(i - 1 + N) % N], p1 = pts[i], p2 = pts[(i + 1) % N], p3 = pts[(i + 2) % N];
+    if (i === 0) g.moveTo(p1[0], p1[1]);
+    g.bezierCurveTo(p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6, p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6, p2[0], p2[1]);
+  }
+  g.closePath();
+}
+function drawFace(g, c, U, [dx, dy, k = 1]) {
+  g.fillStyle = c.P; g.strokeStyle = c.P;
+  for (const [ex, ey] of FACE.eyes) { g.save(); g.translate((ex * k + dx) * U, (ey * k + dy) * U); g.scale(k, k); eyePath(g, U); g.fill(); g.restore(); }
+  g.lineWidth = FACE.line * U * k; g.lineJoin = 'round'; g.lineCap = 'round'; g.beginPath();
+  FACE.beak.forEach(([x, y], i) => i ? g.lineTo((x * k + dx) * U, (y * k + dy) * U) : g.moveTo((x * k + dx) * U, (y * k + dy) * U)); g.closePath(); g.stroke();
+}
+function drawFront(g, c, U) {
+  const [dx, dy, k] = FRONT_OFF[c.face]; g.fillStyle = c.P; g.strokeStyle = c.P;
+  for (const [ex, ey] of FRONT.eyes) { g.save(); g.translate((ex * k + dx) * U, (ey * k + dy) * U); g.scale(FRONT.eyeScale * k, FRONT.eyeScale * k); backEyePath(g, U); g.fill(); g.restore(); }
+  g.lineWidth = FACE.line * U * k; g.lineJoin = 'round'; g.lineCap = 'round'; g.beginPath();
+  FRONT.beak.forEach(([x, y], i) => i ? g.lineTo((x * k + dx) * U, (y * k + dy) * U) : g.moveTo((x * k + dx) * U, (y * k + dy) * U)); g.closePath(); g.stroke();
+}
+function drawBack(g, c, U) { const [x, y] = BACK_EYE[c.face]; g.fillStyle = c.P; g.save(); g.translate(x * U, y * U); backEyePath(g, U); g.fill(); g.restore(); }
+// the body's top pokes up over the bottom of the head (cube lid / cone tip), like in the drawings
+const NECK = { hexagon: { r: 0, top: 9 }, dodecagon: { r: 0.25, top: 0.885 }, burst: { r: 0.28, top: 0.84 }, octagon: { r: 0.26, top: 0.86 }, quatrefoil: { r: 0.26, top: 0.9 } };
+const HEAD_U = 220;                        // pixels per U in the 512px texture
+function drawHead(g, c, side, back, front) {
+  const h = HEADS[c.face], U = HEAD_U;
+  headPath(g, h, U); g.fillStyle = c.S; g.fill();
+  g.save(); headPath(g, h, U); g.clip();
+  const nk = c.neck === false ? { r: 0, top: 9 } : NECK[c.face]; g.fillStyle = c.P; g.beginPath(); g.arc(0, (nk.top + nk.r) * U, nk.r * U, 0, Math.PI * 2); g.fill();
+  g.restore();
+  headPath(g, h, U); g.lineWidth = FACE.outline * U; g.lineJoin = h.kind === 'lobes' ? 'round' : 'miter'; g.miterLimit = 10; g.strokeStyle = c.P; g.stroke();
+  g.save(); if (front) drawFront(g, c, U); else { if (side < 0) g.scale(-1, 1); if (back) drawBack(g, c, U); else drawFace(g, c, U, FACE_OFF[c.face]); } g.restore();   // face sits on top, it may cross the rim like Will's
+}
+function canvasTex(draw) {
+  const c = document.createElement('canvas'); c.width = c.height = 512; const g = c.getContext('2d'); g.translate(256, 256); draw(g);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
+}
+for (const c of Object.values(CHARS)) c.headTex = [[1, 0, 0], [-1, 0, 0], [1, 1, 0], [-1, 1, 0], [1, 0, 1]].map(([sd, bk, fr]) => canvasTex(g => drawHead(g, c, sd, bk, fr)));   // side R, side L, back R, back L, front-on
+
+const headGroup = new THREE.Group(); scene.add(headGroup); noDepth.push(headGroup);
+const shadowGeoGlow = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
+const tmpV = new V3(), camRight = new V3(), camUp = new V3();
+function screenAxes(cam) {                // ground directions that read as screen-right and screen-up for this camera
+  camRight.setFromMatrixColumn(cam.matrixWorld, 0); camRight.y = 0; camRight.normalize();
+  camUp.setFromMatrixColumn(cam.matrixWorld, 1); camUp.y = 0;
+  if (camUp.lengthSq() < 1e-6) camUp.set(0, 0, -1); camUp.normalize();
+}
+function liftTowardCamera(obj, cam, amount) {
+  tmpV.setFromMatrixPosition(cam.matrixWorld).sub(cam.isOrthographicCamera ? camTarget : obj.position).normalize();
+  obj.matrixWorld.setPosition(obj.position.x + tmpV.x * amount, obj.position.y + tmpV.y * amount, obj.position.z + tmpV.z * amount);
+}
+function makeHead(agent, ch, diameter, opts = {}) {
+  const lift = opts.lift ?? 0.4;
+  // one sprite per character: head + face baked together, swapped for the mirrored version when it heads left on screen
+  const size = diameter / 2 * 512 / HEAD_U;   // diameter = 2U in world units
+  const head = new THREE.Sprite(new THREE.SpriteMaterial({ map: ch.headTex[ch.facing > 0 ? 0 : 1], alphaTest: 0.5, transparent: false }));
+  head.scale.set(size, size, 1); headGroup.add(head);
+  head.material.userData.day = '#ffffff'; nightTinted.push(head.material);
+  const look = {};                         // per camera: which side the face is on, and front vs back, with hysteresis
+  head.onBeforeRender = (r, sc, cam, geo, mat) => {
+    screenAxes(cam);
+    const dx = agent.move.dot(camRight), dy = agent.move.dot(camUp), L = Math.hypot(dx, dy) || 1;
+    const st = look[cam.uuid] || (look[cam.uuid] = { side: ch.facing, back: false });
+    if (Math.abs(dx / L) > 0.3) st.side = Math.sign(dx);
+    if (dy / L > 0.45) st.back = true; else if (dy / L < 0.1) st.back = false;   // heading up the screen = walking away = back view
+    if (opts.front) { if (dy / L < -0.6) st.front = true; else if (dy / L > -0.35) st.front = false; }    // straight at the camera = face-on
+    mat.map = st.front ? ch.headTex[4] : ch.headTex[(st.back ? 2 : 0) + (st.side > 0 ? 0 : 1)];
+    if (lift) liftTowardCamera(head, cam, lift);
+  };
+  const glow = new THREE.Mesh(shadowGeoGlow, new THREE.MeshBasicMaterial({ map: glowTex, color: ch.P, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false }));
+  glow.scale.setScalar(diameter * 3); glow.visible = false; headGroup.add(glow); agent.glow = glow;
+  agent.disposeFace = () => headGroup.remove(glow);
+  return head;
+}
+const shadowTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
+  const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, 'rgba(0,0,0,0.28)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(c); })();
+const shadowGeo = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
+function makeShadow(size) { const m = new THREE.Mesh(shadowGeo, new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false }));
+  m.scale.setScalar(size); m.position.y = 0.006; headGroup.add(m); return m; }
+// Flat body in the primary color with a secondary-color outline, like the sketches
+const nightTinted = [];                   // body + head materials that dim at night so outlines and lamps carry the light
+function makeBody(geo, ch, hullScale = 1.08) {
+  const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: ch.P }));
+  m.material.userData.day = ch.P; nightTinted.push(m.material);
+  const hull = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: ch.S, side: THREE.BackSide }));
+  hull.scale.setScalar(hullScale); m.add(hull); return m;
+}
+
+const agentGroup = new THREE.Group(); scene.add(agentGroup);
+const ease = (p) => p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+
+// ---------- Phrases: little tone-on-tone tags that pop up as characters do things ----------
+const phraseLayers = [document.getElementById('mainLabels'), document.getElementById('streetLabels')];
+let phrases = [], phrasesOn = false;   // random pop-ups off by default; hover always shows
+const SPOTS = [[18, -64], [-120, -58], [34, -26], [-150, -18], [10, -92]];
+function say(agent, now, boost) {
+  if (!phrasesOn || paused) return;
+  if (now < agent.quietUntil || phrases.length >= 5) return;
+  if (Math.random() > Math.min(1, (boost ? 0.55 : 0.06) * S.phraseRate)) return;
+  showPhrase(agent, now);
+  agent.quietUntil = now + rand(6, 12) / S.phraseRate;
+}
+function showPhrase(agent, now) {
+  const ch = agent.ch, text = pick(agent.errand ? ERRAND_LINES : ch.phrases).replace('{n}', 2 + ((Math.random() * 13) | 0));
+  const flip = Math.random() < 0.5, bg = flip ? ch.P : ch.S, fg = flip ? ch.S : ch.P;
+  const els = phraseLayers.map(layer => { const el = document.createElement('div'); el.className = 'phrase'; el.textContent = text;
+    el.style.background = bg; el.style.color = fg; layer.appendChild(el); return el; });
+  const ph = { agent, els, born: now, spot: pick(SPOTS) }; phrases.push(ph); return ph;
+}
+const proj = new V3();
+function placePhrases(now, cams) {
+  phrases = phrases.filter(ph => {
+    const age = now - ph.born, life = S.phraseHold + 0.5;
+    if (age > life) { ph.els.forEach(e => e.remove()); return false; }
+    const k = Math.min(1, age / 0.18), out = Math.max(0, (age - S.phraseHold) / 0.5);
+    const a = (1 - out), sc = 0.85 + 0.15 * (1 - Math.pow(1 - k, 3));
+    cams.forEach(([cam, wrap, warp], i) => {
+      const el = ph.els[i]; proj.copy(ph.agent.head.position); proj.project(cam);
+      if (warp) { const q = warp(proj.x, proj.y); proj.x = q[0]; proj.y = q[1]; }
+      const vis = proj.z < 1 && Math.abs(proj.x) < 1.1 && Math.abs(proj.y) < 1.1;
+      const scale = i === 0 ? 1 : 0.7;
+      const x = (proj.x * 0.5 + 0.5) * wrap.clientWidth + ph.spot[0] * scale, y = (-proj.y * 0.5 + 0.5) * wrap.clientHeight + ph.spot[1] * scale;
+      el.style.opacity = vis ? (k * a).toFixed(3) : 0;
+      el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) scale(${sc.toFixed(3)})`;
+    });
+    return true;
+  });
+}
+
+// ---------- Shared: every character has a mood that drifts, so no two moments run at the same pace ----------
+const DIRS = [new V3(1, 0, 0), new V3(-1, 0, 0), new V3(0, 0, 1), new V3(0, 0, -1)];
+function weighted(table) { let t = Math.random() * table.reduce((a, [, w]) => a + w, 0); for (const [k, w] of table) { if ((t -= w) <= 0) return k; } return table[0][0]; }
+class Agent {
+  initMood() { this.tempo = rand(0.85, 1.15); this.mood = 1; this.moodGoal = 1; this.moodT = rand(1, 4); this.quietUntil = 0; }
+  pace(dt) {                              // world tempo × personal tempo × current mood
+    this.moodT -= dt; if (this.moodT <= 0) { this.moodGoal = weighted([[rand(0.5, 0.8), 1], [rand(0.9, 1.2), 2], [rand(1.3, 1.7), 1]]); this.moodT = rand(3, 9); }
+    this.mood += (this.moodGoal - this.mood) * Math.min(1, dt * 0.6);
+    return S.tempo * this.tempo * this.mood;
+  }
+  nudge() {}                              // something bumped into me
+  dispose() { agentGroup.remove(this.body); headGroup.remove(this.head, this.shadow); this.disposeFace(); if (this.ribbon) this.ribbon.dispose(); }
+}
+
+// ---------- CUBE: move set = roll (tips over an edge), hop (jumps one tile), hop-and-slide (lands and skids) ----------
+class Cube extends Agent {
+  constructor() {
+    super(); this.initMood();
+    this.ch = CHARS.cube; this.s = 0.62; this.c = randomFree(0.6); this.dir = pick(DIRS).clone(); this.move = this.dir.clone();
+    this.state = 'idle'; this.timer = rand(0, 1); this.burst = 0;
+    const g = new THREE.BoxGeometry(this.s, this.s, this.s);
+    this.body = makeBody(g, this.ch, 1.07);
+    this.body.add(new THREE.LineSegments(new THREE.EdgesGeometry(g), new THREE.LineBasicMaterial({ color: this.ch.S })));
+    agentGroup.add(this.body); this.head = makeHead(this, this.ch, 0.66); this.shadow = makeShadow(1.0);
+    this.cursor = null; this.cursorDir = null; this.lift = 0; this.place();
+  }
+  place() { this.body.position.set(this.c.x, this.s / 2, this.c.z); this.body.quaternion.identity(); }
+  freeAt(p) { return isFree(p.x, p.z, this.s * 0.6); }
+  choose(dist) {
+    const options = Math.random() < 0.72 ? [this.dir, ...DIRS] : [...DIRS].sort(() => Math.random() - 0.5);
+    for (const d of options) if (this.freeAt(this.c.clone().addScaledVector(d, dist))) return d.clone();
+    return null;
+  }
+  nudge() { if (this.state === 'idle') this.timer = Math.min(this.timer, 0.05); }
+  stamp(from, d, now) {                   // roll trail: the edge it tipped off + one side, alternating
+    const { cP, cS } = this.ch, right = new V3().crossVectors(d, UP).normalize(), rear = from.clone().addScaledVector(d, -this.s / 2), h = this.s / 2;
+    const cornerL = rear.clone().addScaledVector(right, -h), cornerR = rear.clone().addScaledVector(right, h);
+    let start, side;
+    if (this.cursor && this.cursorDir && this.cursorDir.equals(d)) { start = this.cursor; side = this.cursor.distanceTo(cornerL) < this.cursor.distanceTo(cornerR) ? -1 : 1; }
+    else { side = this.cursor && this.cursor.distanceTo(cornerR) < this.cursor.distanceTo(cornerL) ? 1 : -1; start = side < 0 ? cornerL : cornerR; addNode(start, now, cS); }
+    const across = rear.clone().addScaledVector(right, -side * h), sideEnd = across.clone().addScaledVector(d, this.s);
+    addLine([{ p: start.clone(), t: now }, { p: across, t: now }, { p: sideEnd, t: now }], cP);
+    addNode(sideEnd, now, cS); this.cursor = sideEnd.clone(); this.cursorDir = d.clone();
+  }
+  footprint(center, now) {                // hop trail: the square it landed on, with a node in the middle
+    if (stampsOn()) { addStamp('sq', center, this.s, this.ch, now); return; }
+    const h = this.s / 2, c = center, pts = [[-h, -h], [h, -h], [h, h], [-h, h], [-h, -h]].map(([x, z]) => ({ p: new V3(c.x + x, 0, c.z + z), t: now }));
+    addLine(pts, this.ch.cP); addNode(c, now, this.ch.cS); this.cursor = null;
+  }
+  update(dt, now) {
+    if (this.errand) return runErrand(this, dt, now);
+    const pace = this.pace(dt);
+    if (this.state === 'idle') {
+      this.timer -= dt;
+      if (this.timer <= 0) {
+        if (this.burst <= 0 && maybeErrand(this, now)) return;
+        if (this.burst <= 0) {                // pick the next move from the set
+          this.mode = weighted([['roll', 0.62], ['hop', 0.2], ['slide', 0.18]]);
+          this.burst = this.mode === 'roll' ? Math.max(1, Math.round(S.cubeBurst + rand(-1.5, 1.5))) : 1;
+        }
+        const reach = this.mode === 'hop' ? this.s * 2 : this.s;
+        const d = this.choose(reach);
+        if (!d) { this.timer = 0.3; this.burst = 0; say(this, now, true); return; }
+        this.dir = d; this.move.copy(d); this.from = this.c.clone(); this.p = 0;
+        this.state = this.mode === 'roll' ? 'roll' : 'hop';
+        this.hopTo = this.from.clone().addScaledVector(d, reach);
+      }
+    }
+    if (this.state === 'roll') {
+      this.p += dt * pace / 0.5;
+      const e = ease(Math.min(1, this.p)), axis = new V3().crossVectors(UP, this.dir).normalize();
+      const q = new THREE.Quaternion().setFromAxisAngle(axis, e * Math.PI / 2);
+      const pivot = this.from.clone().addScaledVector(this.dir, this.s / 2);
+      this.body.position.copy(new V3(this.from.x, this.s / 2, this.from.z).sub(pivot).applyQuaternion(q).add(pivot)); this.body.quaternion.copy(q);
+      if (this.p >= 1) {
+        this.c = this.from.clone().addScaledVector(this.dir, this.s); this.place();
+        if (stampsOn()) addStamp('sq', this.from, this.s, this.ch, now); else this.stamp(this.from, this.dir, now);
+        this.burst--; this.state = 'idle';
+        this.timer = this.burst > 0 ? 0.05 : S.cubePause * rand(0.5, 1.6) / pace;
+        if (this.burst <= 0) say(this, now, nearBuilding(this.c, 1.0));
+      }
+    }
+    if (this.state === 'hop') {                // a small jump with a quarter twist, squash on landing
+      const slide = this.mode === 'slide', dur = slide ? 0.34 : 0.46;
+      this.p += dt * pace / dur;
+      const p = Math.min(1, this.p), y = 4 * (slide ? 0.32 : 0.6) * p * (1 - p);
+      const at = new V3().lerpVectors(this.from, slide ? this.from.clone().addScaledVector(this.dir, this.s * 0.5) : this.hopTo, p);
+      this.body.position.set(at.x, this.s / 2 + y, at.z);
+      this.body.quaternion.setFromAxisAngle(UP, (slide ? 0 : Math.PI / 2) * ease(p));
+      if (this.p >= 1) {
+        this.c = at.clone(); this.land = now; this.place();
+        if (slide) { this.state = 'slide'; this.v = this.s * rand(4.5, 7); this.slideFrom = this.c.clone(); this.slideLast = this.c.clone(); }
+        else { this.footprint(this.c, now); this.burst = 0; this.state = 'idle'; this.timer = S.cubePause * rand(0.6, 1.4) / pace; }
+      }
+    }
+    if (this.state === 'slide') {              // skid along the ground, slowing down, leaning back
+      this.v *= Math.exp(-dt * 3.2);
+      const next = this.c.clone().addScaledVector(this.dir, this.v * dt);
+      const stop = this.v < 0.15 || !this.freeAt(next);
+      if (!stop) this.c.copy(next);
+      this.place(); this.body.quaternion.setFromAxisAngle(new V3().crossVectors(UP, this.dir).normalize(), -Math.min(0.25, this.v * 0.06));
+      if (this.c.distanceTo(this.slideLast) >= this.s || stop) {
+        const a = this.slideLast, b = this.c, right = new V3().crossVectors(this.dir, UP).normalize().multiplyScalar(this.s / 2);
+        if (stampsOn()) addStamp('sq', a, this.s * 0.9, this.ch, now);
+        else { addLine([{ p: a.clone().add(right), t: now }, { p: b.clone().add(right), t: now }], this.ch.cP);
+               addLine([{ p: a.clone().sub(right), t: now }, { p: b.clone().sub(right), t: now }], this.ch.cP); }
+        this.slideLast = this.c.clone();
+      }
+      if (stop) { this.place(); if (!stampsOn()) addNode(this.c, now, this.ch.cS); this.cursor = null; this.burst = 0; this.state = 'idle'; this.timer = S.cubePause * rand(0.8, 1.6) / pace; }
+    }
+    const squash = this.land && now - this.land < 0.16 ? 0.82 + 0.18 * ((now - this.land) / 0.16) : 1;
+    this.body.scale.set(1 / Math.sqrt(squash), squash, 1 / Math.sqrt(squash));
+    const bp = this.body.position;
+    this.head.position.set(bp.x, bp.y + this.s * 0.5 * squash + 0.2, bp.z);
+    this.shadow.position.set(bp.x, 0.006, bp.z); this.shadow.scale.setScalar(1 / (1 + Math.max(0, bp.y - this.s / 2)));
+  }
+}
+
+// ---------- CONE: move set = hop (any direction, horseshoe stamp) and pivot (tips onto its rim and swings around) ----------
+class Cone extends Agent {
+  constructor(ch, r, h, headD) {
+    super(); this.initMood();
+    this.ch = ch; this.r = r; this.h = h; this.pos = randomFree(0.5); this.ang = rand(0, Math.PI * 2); this.move = new V3(1, 0, 0);
+    this.state = 'rest'; this.timer = rand(0, 1); this.p = 0; this.headD = headD;
+    const g = new THREE.ConeGeometry(this.r, this.h, 40).translate(0, this.h / 2, 0);
+    this.body = makeBody(g, ch, 1.08); agentGroup.add(this.body);
+    this.head = makeHead(this, ch, headD); this.shadow = makeShadow(this.r * 3.4); this.body.position.copy(this.pos);
+  }
+  nudge() { if (this.state === 'rest') this.timer = Math.min(this.timer, 0.08); }
+  planHop() {
+    const hopLen = (this.r + 0.09) * 2;
+    for (let i = 0; i < 10; i++) {
+      const a = this.ang + THREE.MathUtils.degToRad(rand(-S.coneTurn, S.coneTurn)) * (i ? 1.6 : 1);
+      const t = this.pos.clone().add(new V3(Math.cos(a), 0, Math.sin(a)).multiplyScalar(hopLen));
+      if (isFree(t.x, t.z, this.r + 0.15)) { this.ang = a; this.from = this.pos.clone(); this.to = t; this.move.set(Math.cos(a), 0, Math.sin(a)); return true; }
+    }
+    return false;
+  }
+  planPivot() {
+    for (let i = 0; i < 8; i++) {
+      const sideA = this.ang + (Math.random() < 0.5 ? 1 : -1) * Math.PI / 2 + rand(-0.4, 0.4);
+      const P = this.pos.clone().add(new V3(Math.cos(sideA), 0, Math.sin(sideA)).multiplyScalar(this.r));
+      const turn = (Math.random() < 0.5 ? 1 : -1) * rand(1.6, 3.6), v0 = this.pos.clone().sub(P);
+      const end = P.clone().add(v0.clone().applyAxisAngle(UP, turn));
+      if (isFree(end.x, end.z, this.r + 0.12) && isFree(P.x, P.z, 0.05)) { this.P = P; this.v0 = v0; this.turn = turn; return true; }
+    }
+    return false;
+  }
+  update(dt, now) {
+    if (this.errand) return runErrand(this, dt, now);
+    const pace = this.pace(dt);
+    let y = 0, squash = 1;
+    this.body.quaternion.identity();
+    if (this.state === 'rest') {
+      this.timer -= dt;
+      if (this.timer < 0.12) squash = 0.86 + 0.14 * Math.max(0, this.timer / 0.12);
+      if (this.timer <= 0) {
+        if (maybeErrand(this, now)) return;
+        const want = weighted([['hop', 0.72], ['pivot', 0.28]]);
+        if (want === 'pivot' && this.planPivot()) { this.state = 'pivot'; this.p = 0; }
+        else if (this.planHop()) { this.state = 'hop'; this.p = 0; }
+        else { this.timer = 0.2; this.ang += Math.PI; say(this, now, true); }
+      }
+    }
+    if (this.state === 'hop') {
+      this.p += dt * pace / 0.38;
+      const p = Math.min(1, this.p); this.pos.lerpVectors(this.from, this.to, p); y = 4 * S.coneHopHeight * p * (1 - p);
+      squash = 1.08 - 0.08 * Math.abs(p - 0.5) * 2;
+      if (this.p >= 1) {
+        this.state = 'rest'; this.land = now;
+        const long = Math.random() < 0.2;
+        this.timer = (long ? rand(0.8, 1.6) : rand(0.12, 0.45)) / pace;
+        if (stampsOn()) addStamp('disc', this.pos, this.r, this.ch, now);
+        else {
+          const back = this.ang + Math.PI, gap = THREE.MathUtils.degToRad(70);
+          const arc = addRing(this.pos, this.r + 0.09, now, this.ch.cP, back + gap / 2, back + Math.PI * 2 - gap / 2, 24);
+          addNode(arc.pts[0].p, now, this.ch.cS); addNode(arc.pts[arc.pts.length - 1].p, now, this.ch.cS);
+        }
+        if (long) say(this, now, nearBuilding(this.pos, 0.9));
+      }
+    }
+    if (this.state === 'pivot') {               // tip onto the rim, swing around that point, settle back down
+      this.p += dt * pace / (0.5 + Math.abs(this.turn) * 0.22);
+      const p = Math.min(1, this.p), tilt = 0.42 * Math.sin(Math.PI * Math.min(1, p * 1.15));
+      const swing = this.turn * ease(THREE.MathUtils.clamp((p - 0.12) / 0.76, 0, 1));
+      const qYaw = new THREE.Quaternion().setFromAxisAngle(UP, swing);
+      const v0n = this.v0.clone().normalize(), qTilt = new THREE.Quaternion().setFromAxisAngle(new V3().crossVectors(v0n, UP).normalize(), tilt);
+      const q = qYaw.clone().multiply(qTilt);
+      this.body.quaternion.copy(q);
+      const base = this.P.clone().add(this.v0.clone().applyQuaternion(q));
+      this.pos.set(base.x, 0, base.z); y = base.y;
+      this.move.copy(this.v0).applyAxisAngle(UP, swing + Math.sign(this.turn) * Math.PI / 2).normalize();
+      if (p >= 1) {
+        this.state = 'rest'; this.land = now; this.timer = rand(0.3, 0.9) / pace;
+        this.ang = Math.atan2(this.move.z, this.move.x);
+        if (stampsOn()) addStamp('disc', this.pos, this.r, this.ch, now);
+        else {                                 // the sweep of the far rim, and a node where it pivoted
+          const a0 = Math.atan2(this.v0.z, this.v0.x), pts = [];
+          for (let i = 0; i <= 28; i++) { const a = a0 + this.turn * i / 28; pts.push({ p: new V3(this.P.x + Math.cos(a) * this.r * 2, 0, this.P.z + Math.sin(a) * this.r * 2), t: now }); }
+          addLine(pts, this.ch.cP); addNode(this.P, now, this.ch.cS); addNode(pts[pts.length - 1].p, now, this.ch.cS);
+        }
+      }
+    }
+    if (this.land && now - this.land < 0.18) squash = 0.8 + 0.2 * ((now - this.land) / 0.18);
+    this.body.position.set(this.pos.x, y, this.pos.z); this.body.scale.set(1 / Math.sqrt(squash), squash, 1 / Math.sqrt(squash));
+    const apex = new V3(0, this.h * squash, 0).applyQuaternion(this.body.quaternion).add(this.body.position);
+    this.head.position.set(apex.x, apex.y + this.headD * 0.2, apex.z);
+    this.shadow.position.set(this.pos.x, 0.006, this.pos.z); this.shadow.scale.setScalar(this.r * 3.4 / (1 + y));
+  }
+}
+
+// ---------- SPHERE: move set = roll (cruise, dash, dawdle) and bounce (real momentum: bumps walls and others, rebounds, recovers) ----------
+class Sphere extends Agent {
+  constructor() {
+    super(); this.initMood();
+    this.ch = CHARS.sphere; this.r = 0.3; this.pos = randomFree(0.5); this.dir = pick(DIRS).clone(); this.move = this.dir.clone();
+    this.vel = new V3(); this.run = rand(3, 8); this.stop = 0; this.daze = 0; this.bounceY = 0; this.bounceV = 0;
+    this.body = makeBody(new THREE.SphereGeometry(this.r, 32, 16), this.ch, 1.07);
+    agentGroup.add(this.body); this.head = makeHead(this, this.ch, 0.5); this.shadow = makeShadow(0.95);
+    this.seg = null; this.sinceNode = 0; this.ribbon = new Ribbon(this.ch, this.r * 2);
+  }
+  newSegment(now) { addNode(this.pos, now, this.ch.cS); this.seg = addLine([{ p: this.pos.clone(), t: now }, { p: this.pos.clone(), t: now }], this.ch.cP); this.sinceNode = 0; }
+  corner(now) { if (!stampsOn() && this.seg) { this.seg.pts.push({ p: this.pos.clone(), t: now }); } }
+  pickHeading() {
+    const v = this.vel.lengthSq() > 0.01 ? this.vel.clone().normalize() : this.dir;
+    const opts = DIRS.filter(d => isFree(this.pos.x + d.x * 0.8, this.pos.z + d.z * 0.8, this.r + 0.1)).sort((a, b) => b.dot(v) - a.dot(v) + rand(-0.8, 0.8));
+    if (opts.length) this.dir = opts[0].clone(); this.run = rand(3, 9);
+  }
+  bump(now, strong) {                      // impact: a little hop, a burst ring on the ground, then a daze
+    this.bounceV = strong ? 2.6 : 1.6; this.daze = rand(0.5, 0.9);
+    if (stampsOn()) addStamp('disc', this.pos, this.r * 0.6, this.ch, now);
+    else { this.corner(now); addRing(this.pos, this.r * 0.75, now, this.ch.cS, 0, Math.PI * 2, 18); }
+    say(this, now, true);
+  }
+  update(dt, now) {
+    if (this.errand) return runErrand(this, dt, now);
+    if (this.stop > 0 && this.stop - dt <= 0 && maybeErrand(this, now)) return;
+    const pace = this.pace(dt), stampy = stampsOn();
+    if (stampy) this.seg = null; else if (!this.seg || !trails.includes(this.seg)) this.newSegment(now);
+    // thrust: cruise along the heading unless resting or dazed; mood changes the cruise speed (dawdle ↔ dash)
+    if (this.stop > 0) this.stop -= dt;
+    else if (Math.random() < dt * 0.07) this.stop = rand(0.8, 1.8);
+    if (this.daze > 0) { this.daze -= dt; if (this.daze <= 0) { this.pickHeading(); this.corner(now); } }
+    const thrust = this.stop > 0 || this.daze > 0 ? 0 : 1, cruise = S.sphereSpeed * pace;
+    if (thrust) this.vel.lerp(this.dir.clone().multiplyScalar(cruise), Math.min(1, dt * 2.2));
+    else this.vel.multiplyScalar(Math.exp(-dt * 2.4));
+    // move with collisions: walls reflect the blocked axis, losing energy
+    const step = this.vel.clone().multiplyScalar(dt), e = 0.55;
+    let hit = false;
+    if (!isFree(this.pos.x + step.x + Math.sign(step.x) * this.r, this.pos.z, 0.02)) { this.vel.x *= -e; step.x = 0; hit = true; }
+    if (!isFree(this.pos.x, this.pos.z + step.z + Math.sign(step.z) * this.r, 0.02)) { this.vel.z *= -e; step.z = 0; hit = true; }
+    // other characters: bounce off them and give them a nudge
+    for (const o of agents) {
+      if (o === this) continue;
+      const op = o.pos || o.c; if (!op) continue;
+      const n = new V3(this.pos.x - op.x, 0, this.pos.z - op.z), d = n.length();
+      if (d > 0.001 && d < this.r + 0.34) { n.divideScalar(d); const vn = this.vel.dot(n);
+        if (vn < 0) { this.vel.addScaledVector(n, -(1 + e) * vn); o.nudge(); hit = true; } }
+    }
+    if (hit && this.daze <= 0) this.bump(now, this.vel.length() > 0.8);
+    this.pos.add(step);
+    const dist = step.length(); this.run -= dist; this.sinceNode += dist;
+    if (this.run <= 0 && this.daze <= 0) { this.pickHeading(); this.corner(now); }
+    if (dist > 1e-5) {
+      this.move.copy(step).normalize();
+      this.body.quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(new V3().crossVectors(UP, this.move).normalize(), dist / this.r));
+    }
+    this.bounceV -= 9 * dt; this.bounceY = Math.max(0, this.bounceY + this.bounceV * dt); if (this.bounceY === 0) this.bounceV = Math.max(0, this.bounceV);
+    if (stampy) this.ribbon.push(this.pos, now);
+    else {
+      const tail = this.seg.pts[this.seg.pts.length - 1]; tail.p.copy(this.pos); tail.t = now;
+      if (this.sinceNode >= Math.PI * 2 * this.r) { addNode(this.pos, now, this.ch.cS); this.seg.pts.push({ p: this.pos.clone(), t: now }); this.sinceNode = 0; }
+    }
+    this.body.position.set(this.pos.x, this.r + this.bounceY, this.pos.z);
+    this.head.position.set(this.pos.x, this.r * 2 + 0.12 + this.bounceY, this.pos.z);
+    this.shadow.position.set(this.pos.x, 0.006, this.pos.z);
+  }
+}
+
+// ---------- Contributing: every so often a character decides, on its own, to pick up a loose bit, carry it up the hill
+// and add it to the pile. Nobody is told to; it's a roll of the dice at each pause, so it stays rare and personal. ----------
+const ERRAND_LINES = ['CONTRIBUTING…', 'ADDING 1 FINDING', 'SHARING RESULTS', 'POOLING DATA'];
+const errandCount = () => agents.filter(a => a.errand).length;
+function maybeErrand(a, now) {             // called by each character when it's between moves
+  if (!S.hill || a.errand || errandCount() >= 3 || Math.random() > 0.035 * S.contribute) return false;
+  const here = a.c || a.pos; let best = null, bd = 1e9;
+  for (const b of looseBits) if (!b.taken) { const d = here.distanceTo(b.p); if (d < bd) { bd = d; best = b; } }
+  if (!best || bd > 7) return false;
+  best.taken = true; a.errand = { phase: 'fetch', bit: best, at: here.clone(), dist: 0, wp: 0 };
+  if (a.ribbon) a.ribbon.pts.length = 0;
+  return true;
+}
+// street navigation: a coarse grid of walkable cells, searched breadth-first, so errands find their way round blocks
+const NAV = { cell: 0.5, n: Math.round(HALF * 2 / 0.5), free: null };
+const navIdx = (x, z) => [Math.min(NAV.n - 1, Math.max(0, Math.floor((x + HALF) / NAV.cell))), Math.min(NAV.n - 1, Math.max(0, Math.floor((z + HALF) / NAV.cell)))];
+const navPt = (i, j) => new V3(-HALF + (i + 0.5) * NAV.cell, 0, -HALF + (j + 0.5) * NAV.cell);
+function navRoute(from, to) {
+  if (!NAV.free) { NAV.free = []; for (let i = 0; i < NAV.n; i++) for (let j = 0; j < NAV.n; j++) { const q = navPt(i, j); NAV.free[i * NAV.n + j] = isFree(q.x, q.z, 0.22); } }
+  const [si, sj] = navIdx(from.x, from.z), [ti, tj] = navIdx(to.x, to.z), N = NAV.n, prev = new Int32Array(N * N).fill(-1), start = si * N + sj, goal = ti * N + tj;
+  const queue = [start]; prev[start] = start;
+  for (let h = 0; h < queue.length; h++) { const c = queue[h]; if (c === goal) break; const ci = (c / N) | 0, cj = c % N;
+    for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]]) { const ni = ci + di, nj = cj + dj;
+      if (ni < 0 || nj < 0 || ni >= N || nj >= N) continue; const k = ni * N + nj; if (prev[k] !== -1 || (!NAV.free[k] && k !== goal)) continue;
+      if (di && dj && (!NAV.free[(ci + di) * N + cj] || !NAV.free[ci * N + cj + dj])) continue; prev[k] = c; queue.push(k); } }
+  if (prev[goal] === -1) return [to.clone()];
+  const out = []; for (let c = goal; c !== start; c = prev[c]) out.push(navPt((c / N) | 0, c % N)); out.reverse();
+  // drop waypoints that a straight walk can skip
+  const pts = [from.clone(), ...out.slice(0, -1), to.clone()], keep = [];
+  let anchor = pts[0];
+  for (let i = 1; i < pts.length; i++) { const nx = pts[i + 1]; if (!nx) { keep.push(pts[i]); break; }
+    let clear = true; for (let k = 1; k <= 8; k++) { const q = anchor.clone().lerp(nx, k / 8); if (!isFree(q.x, q.z, 0.2)) { clear = false; break; } }
+    if (!clear) { keep.push(pts[i]); anchor = pts[i]; } }
+  return keep;
+}
+function steerTo(a, e, target, step) {     // walk a found route toward a point on the street
+  if (!e.route || e.routeFor !== target) { e.route = navRoute(e.at, target); e.routeFor = target; }
+  const wp = e.route[0] || target, to = new V3(wp.x - e.at.x, 0, wp.z - e.at.z), L = to.length();
+  if (L > 1e-4) { to.divideScalar(L); e.at.addScaledVector(to, Math.min(step, L)); a.move.copy(to); }
+  if (L - step < 0.05) { e.route.shift(); if (!e.route.length) { e.route = null; return true; } }
+  return false;
+}
+function pathEntry(e) { let best = 0, bd = 1e9; PATHS.forEach((p, i) => { const d = e.at.distanceTo(p[0]); if (d < bd) { bd = d; best = i; } }); return best; }
+function runErrand(a, dt, now) {
+  const e = a.errand, pace = a.pace(dt), step = 1.15 * pace * dt;
+  if (e.phase === 'fetch') {
+    if (steerTo(a, e, e.bit.p, step)) {    // pick it up: the bit hops onto its head
+      looseBits.splice(looseBits.indexOf(e.bit), 1); e.carry = e.bit.m; e.carry.material.color.set(a.ch.P); e.carry.material.emissive.set(a.ch.P);
+      e.path = pathEntry(e); e.phase = 'walk'; say(a, now, true);
+    }
+  } else if (e.phase === 'walk') {
+    if (steerTo(a, e, PATHS[e.path][0], step)) { e.phase = 'up'; e.wp = 0; }
+  } else if (e.phase === 'up' || e.phase === 'down') {
+    const P = PATHS[e.path], up = e.phase === 'up', target = P[up ? Math.min(P.length - 1, e.wp + 1) : Math.max(0, e.wp - 1)];
+    const to = new V3(target.x - e.at.x, 0, target.z - e.at.z), L = to.length(), s = Math.min(step * (up ? 0.75 : 1.1), L);
+    if (L > 1e-4) { to.divideScalar(L); e.at.addScaledVector(to, s); a.move.copy(to); }
+    if (L - s < 0.02) {
+      e.wp += up ? 1 : -1;
+      if (up && e.wp >= P.length - 1) {    // summit: toss the bit onto the pile
+        const slot = massSlot(); scene.remove(e.carry);
+        const from = new V3(e.at.x, hillY(e.at.x, e.at.z) + 0.9, e.at.z), to2 = slot.clone().applyAxisAngle(UP, massGroup.rotation.y).add(massGroup.position);
+        flying.push({ m: e.carry, from, to: to2, slot, t: 0 }); scene.add(e.carry); e.carry = null;
+        e.phase = 'pause'; e.wait = rand(0.6, 1.4); say(a, now, true);
+      }
+      if (!up && e.wp <= 0) e.phase = 'leave';
+    }
+  } else if (e.phase === 'pause') { e.wait -= dt; a.move.set(-e.at.x, 0, -e.at.z).normalize(); if (e.wait <= 0) { e.phase = 'down'; e.wp = PATHS[e.path].length - 1; } }
+  else if (e.phase === 'leave') {          // step back out onto the street and carry on as normal
+    if (!e.out) e.out = e.at.clone().setY(0).normalize().multiplyScalar(HILL.R + 0.9); const out = e.out;
+    if (steerTo(a, e, out, step) || isFree(e.at.x, e.at.z, 0.35)) { a.endErrand(e.at.clone().setY(0), now); a.errand = null; return; }
+  }
+  e.dist += (e.phase === 'pause' ? 0 : step);
+  if (e.flying) return;
+  // gait while on an errand: cubes tumble, cones hop, spheres roll
+  const gy = hillY(e.at.x, e.at.z), body = a.body;
+  if (a instanceof Cube) {
+    const ph = (e.dist % a.s) / a.s, ang = ph * Math.PI / 2, axis = new V3().crossVectors(UP, a.move).normalize();
+    body.quaternion.setFromAxisAngle(axis, ang); body.position.set(e.at.x, gy + a.s / 2 * Math.SQRT2 * Math.sin(ang + Math.PI / 4), e.at.z);
+    a.head.position.set(e.at.x, gy + a.s + 0.2, e.at.z);
+  } else if (a instanceof Cone) {
+    const hop = (a.r + 0.09) * 2, ph = (e.dist % hop) / hop, y = 4 * 0.22 * ph * (1 - ph);
+    body.quaternion.identity(); body.position.set(e.at.x, gy + y, e.at.z); a.pos.set(e.at.x, 0, e.at.z);
+    a.head.position.set(e.at.x, gy + y + a.h + a.headD * 0.2, e.at.z);
+  } else {
+    if (step > 0 && e.phase !== 'pause') body.quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(new V3().crossVectors(UP, a.move).normalize(), step / a.r));
+    body.position.set(e.at.x, gy + a.r, e.at.z); a.pos.set(e.at.x, 0, e.at.z);
+    a.head.position.set(e.at.x, gy + a.r * 2 + 0.12, e.at.z);
+  }
+  if (a.c) a.c.set(e.at.x, 0, e.at.z);
+  a.shadow.position.set(e.at.x, gy + 0.008, e.at.z);
+  if (e.carry) e.carry.position.set(a.head.position.x, a.head.position.y + 0.42 + Math.sin(now * 6) * 0.03, a.head.position.z);
+}
+Cube.prototype.endErrand = function (p, now) { this.c = p; this.place(); this.state = 'idle'; this.burst = 0; this.cursor = null; this.timer = 0.4; };
+Cone.prototype.endErrand = function (p, now) { this.pos.copy(p); this.state = 'rest'; this.timer = 0.4; this.ang = Math.atan2(this.move.z, this.move.x); };
+Sphere.prototype.endErrand = function (p, now) { this.pos.copy(p); this.vel.set(0, 0, 0); this.seg = null; this.daze = 0; this.stop = 0.3; this.pickHeading(); };
+
+// ---------- ORBIT CAST (v0.6): floating heads in a wire bubble (or cube) with a ghosted wire skeleton inside, a stem with a
+// colored ball on top, and a rope trail pulled behind them. They move omnidirectionally and fluidly: steering with inertia,
+// hovering, leaning into turns, with the stem, skeleton and rope all lagging behind the motion. Proportions from Will's sheet.
+let fatMats = [];                        // fat-line materials that need the render size each frame
+const orbLine = new THREE.Color('#ffffff');
+function fatLoop(points, width, opts = {}) {
+  const g = new LineSegmentsGeometry(), arr = [];
+  for (let i = 0; i < points.length; i++) { const a = points[i], b = points[(i + 1) % points.length]; if (!opts.open || i < points.length - 1) arr.push(a.x, a.y, a.z, b.x, b.y, b.z); }
+  g.setPositions(arr);
+  const m = new LineMaterial({ color: orbLine, linewidth: width, worldUnits: false, transparent: true, opacity: opts.opacity ?? 1, depthWrite: false });
+  m.userData.w = width; fatMats.push(m); return new LineSegments2(g, m);
+}
+const circlePts = (r, n = 64, plane = 'xy') => Array.from({ length: n }, (_, i) => { const a = i / n * Math.PI * 2, c = Math.cos(a) * r, s = Math.sin(a) * r; return plane === 'xy' ? new V3(c, s, 0) : new V3(c, 0, s); });
+const spriteTex = (draw) => { const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d'); g.translate(64, 64); draw(g); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; };
+const diamondTex = spriteTex(g => { g.fillStyle = '#fff'; g.beginPath(); g.moveTo(0, -56); g.lineTo(56, 0); g.lineTo(0, 56); g.lineTo(-56, 0); g.closePath(); g.fill(); });
+const ORB_KINDS = {                         // movement personality per head
+  burst:     { speed: 1.0, weave: 0.7, weaveHz: 1.6, darts: 0.0, arcs: 0.0 },    // weaves like a fish
+  dodecagon: { speed: 1.05, weave: 0.15, weaveHz: 0.7, darts: 1.0, arcs: 0.0 },  // glides, stops to spin, then darts
+  hexagon:   { speed: 0.85, weave: 0.1, weaveHz: 0.5, darts: 0.0, arcs: 1.0 },   // long lazy arcs, swapping direction
+};
+class Orb extends Agent {
+  constructor(ch, shell, soft) {
+    super(); this.initMood(); this.soft = soft;
+    this.ch = ch; this.kind = ORB_KINDS[ch.face]; this.U = 0.3; const U = this.U;
+    this.R = soft ? 0.46 * S.headSize : U * (shell === 'cube' ? 1.24 : 1.32); this.hover = this.R + (soft ? 0.1 : 0.14); this.phase = rand(0, 6.28);
+    this.pos = randomFree(0.7); this.heading = rand(0, Math.PI * 2); this.vel = new V3(); this.move = new V3(1, 0, 0);
+    this.turnRate = 0; this.arcSign = Math.random() < 0.5 ? 1 : -1; this.arcT = rand(2, 5); this.rest = 0; this.dart = 0; this.spin = 0; this.walk = 0;
+    // shell: a camera-facing outline circle + a 3D equator (+ a wire cube for the cube-shelled ones)
+    this.body = new THREE.Group(); agentGroup.add(this.body);
+    this.tilt = new THREE.Group(); this.body.add(this.tilt);
+    this.outline = soft ? fatLoop(circlePts(this.R, 96), 1.4, { opacity: 0.95 }) : fatLoop(circlePts(this.R), 2.2); this.outline.frustumCulled = false; this.body.add(this.outline);
+    const ol = this.outline; ol.onBeforeRender = (r, sc, cam) => { ol.matrixWorld.compose(tmpV.setFromMatrixPosition(this.body.matrixWorld), cam.quaternion, ol.scale); ol.modelViewMatrix.multiplyMatrices(cam.matrixWorldInverse, ol.matrixWorld); };
+    if (soft) this.buildSoft(); else {
+    this.equator = fatLoop(circlePts(this.R, 64, 'xz'), 2.2); this.tilt.add(this.equator);
+    if (shell === 'cube') { const s = U * 1.27, c = [];
+      for (const [a, b] of [[0,1],[1,3],[3,2],[2,0],[4,5],[5,7],[7,6],[6,4],[0,4],[1,5],[2,6],[3,7]]) { const v = i => new V3(i & 1 ? s : -s, i & 2 ? s : -s, i & 4 ? s : -s); c.push(v(a), v(b)); }
+      const g = new LineSegmentsGeometry(); g.setPositions(c.flatMap(p => [p.x, p.y, p.z]));
+      const m = new LineMaterial({ color: orbLine, linewidth: 2.2, transparent: true, depthWrite: false }); m.userData.w = 2.2; fatMats.push(m);
+      this.cube = new LineSegments2(g, m); this.body.add(this.cube); this.cubeS = s;
+      this.rolls = Math.random() < S.rollShare; this.rollQ = new THREE.Quaternion();
+      if (this.rolls) { this.hover = s * 1.0; } }   // rollers sit in their cube on the ground and tumble it; gliders hover
+    // ghosted wire skeleton inside the shell
+    this.skelGeo = new THREE.BufferGeometry(); this.skelGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(15 * 2 * 3), 3));
+    this.skel = new THREE.LineSegments(this.skelGeo, new THREE.LineBasicMaterial({ color: ch.P, transparent: true, opacity: 0.5, depthWrite: false }));
+    this.skel.renderOrder = 20; this.skel.frustumCulled = false; this.body.add(this.skel);
+    this.jointGeo = new THREE.BufferGeometry(); this.jointGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(12 * 3), 3));
+    this.joints = new THREE.Points(this.jointGeo, new THREE.PointsMaterial({ color: ch.S, size: 4, sizeAttenuation: false, transparent: true, opacity: 0.7, depthWrite: false, map: dotTex, alphaTest: 0.4 }));
+    this.joints.renderOrder = 21; this.joints.frustumCulled = false; this.body.add(this.joints);
+    const ghostV = new V3(), camDir = new V3();
+    for (const o of [this.skel, this.joints]) o.onBeforeRender = (r, sc, cam) => {   // pulled toward the camera so it ghosts over the head, but buildings still hide it
+      ghostV.setFromMatrixPosition(this.body.matrixWorld); camDir.setFromMatrixPosition(cam.matrixWorld).sub(cam.isOrthographicCamera ? camTarget : ghostV).normalize();
+      o.matrixWorld.setPosition(ghostV.addScaledVector(camDir, this.R * 1.05)); o.modelViewMatrix.multiplyMatrices(cam.matrixWorldInverse, o.matrixWorld); };   // ghosted over the head, still hidden by buildings
+    // head (no lift: it sits inside the shell, so the near half of the equator passes in front of it)
+    this.head = makeHead(this, ch, U * 2, { lift: 0, front: true });
+    // stem + ball: the ball is on a spring, so it swings behind the motion
+    this.diamond = new THREE.Sprite(new THREE.SpriteMaterial({ map: diamondTex, color: orbLine, depthTest: false, transparent: true })); this.diamond.renderOrder = 22;
+    this.diamond.scale.setScalar(U * 0.2); headGroup.add(this.diamond);
+    const ballTex = spriteTex(g => { g.fillStyle = '#fff'; g.beginPath(); g.arc(0, 0, 60, 0, Math.PI * 2); g.fill(); g.fillStyle = ch.P; g.beginPath(); g.arc(0, 0, 50, 0, Math.PI * 2); g.fill(); });
+    this.ball = new THREE.Sprite(new THREE.SpriteMaterial({ map: ballTex, alphaTest: 0.5 })); this.ball.scale.setScalar(U * 0.6); headGroup.add(this.ball);
+    this.ballPos = null; this.ballVel = new V3();
+    this.stemGeo = new LineSegmentsGeometry(); this.stemGeo.setPositions([0, 0, 0, 0, 1, 0]);
+    const sm = new LineMaterial({ color: orbLine, linewidth: 2.2, transparent: true, depthWrite: false }); sm.userData.w = 2.2; fatMats.push(sm);
+    this.stem = new LineSegments2(this.stemGeo, sm); this.stem.frustumCulled = false; headGroup.add(this.stem); }
+    this.shadow = makeShadow(this.R * 2.6);
+    // rope: follow-the-leader chain dragged along the ground, drawn by the trail system (lines, dots or stamps)
+    this.ropeN = 44; this.ropeSeg = 0.11; this.rope = { pts: [], c: ch.cP };
+    for (let i = 0; i < this.ropeN; i++) this.rope.pts.push({ p: new V3(this.pos.x, 0, this.pos.z), t: 0 });
+  }
+  nudge() { this.vel.multiplyScalar(0.6); this.turnRate += rand(-2, 2); }
+  freeAhead(h, dist) { for (const k of [0.35, 0.7, 1]) { const x = this.pos.x + Math.cos(h) * dist * k, z = this.pos.z + Math.sin(h) * dist * k; if (!isFree(x, z, this.R + 0.12)) return false; } return true; }
+  update(dt, now) {
+    const pace = this.pace(dt), K = this.kind, t = now + this.phase;
+    let step, before;
+    if (this.soft && roadsWorld()) { before = this.vel.clone(); step = this.roadStep(dt, pace); } else {
+    // 1. decide where it wants to go: a heading that wanders, with a personal flavour on top
+    this.turnRate += (rand(-1, 1) * 2.2 - this.turnRate * 0.9) * dt;
+    if (K.arcs) { this.arcT -= dt; if (this.arcT <= 0) { this.arcSign *= -1; this.arcT = rand(2.5, 6); } this.turnRate += (this.arcSign * 0.55 - this.turnRate) * dt * 0.8; }
+    this.heading += this.turnRate * dt;
+    let speed = 0.75 * K.speed * pace;
+    if (K.darts) {                          // glide, slow to a stop and spin the shell, then dart off somewhere new
+      if (this.rest > 0) { this.rest -= dt; speed *= 0.05; this.spin += dt * 5; if (this.rest <= 0) { this.dart = 0.9; this.heading += rand(-2.2, 2.2); } }
+      else if (Math.random() < dt * 0.12) this.rest = rand(0.9, 1.8);
+      if (this.dart > 0) { this.dart -= dt; speed *= 2.3; }
+    }
+    let want = this.heading + Math.sin(t * K.weaveHz * Math.PI * 2 * 0.5) * K.weave;
+    // 2. look ahead and swing round anything in the way (buildings, the hill, the edge)
+    const look = 0.6 + this.vel.length() * 0.9;
+    if (!this.freeAhead(want, look)) {
+      let best = null;
+      for (let k = 1; k <= 10 && best === null; k++) for (const sgn of [1, -1]) { const h = want + sgn * k * 0.3; if (this.freeAhead(h, look)) { best = h; break; } }
+      want = best ?? want + Math.PI; this.heading += (want - this.heading) * Math.min(1, dt * 4);
+    }
+    // keep a little space from the others
+    const push = new V3();
+    for (const o of agents) { if (o === this || !o.pos) continue; const dx = this.pos.x - o.pos.x, dz = this.pos.z - o.pos.z, d2 = dx * dx + dz * dz;
+      const lim = Math.max(1.2, this.R + (o.R || 0.4) + 0.2);   // bigger bubbles keep more room
+      if (d2 < lim * lim && d2 > 1e-4) { const d = Math.sqrt(d2); push.x += dx / d * (lim - d) * 1.4; push.z += dz / d * (lim - d) * 1.4; } }
+    // 3. steer the velocity toward that (inertia is what makes it feel fluid)
+    const desired = new V3(Math.cos(want), 0, Math.sin(want)).multiplyScalar(speed).addScaledVector(push, 1.5);
+    before = this.vel.clone(); this.vel.lerp(desired, Math.min(1, dt * 1.8));
+    step = this.vel.clone().multiplyScalar(dt);
+    if (!isFree(this.pos.x + step.x, this.pos.z, this.R)) { step.x = 0; this.vel.x *= -0.3; }
+    if (!isFree(this.pos.x, this.pos.z + step.z, this.R)) { step.z = 0; this.vel.z *= -0.3; }
+    }
+    this.pos.add(step); const sp = this.vel.length(); if (sp > 0.05) this.move.copy(this.vel).normalize();
+    const acc = this.vel.clone().sub(before).divideScalar(Math.max(dt, 1e-4));
+    this.walk += step.length() / (this.U * 1.4);
+    // 4. pose: hover-bob, lean into acceleration, spin the equator when resting
+    let y = this.hover + Math.sin(t * 2.1) * 0.05;
+    if (this.cube && this.rolls) {         // tumble the cube along the ground: roll angle = distance / half-size, lifted so a corner/edge always touches
+      const dist = step.length(); if (dist > 1e-6) this.rollQ.premultiply(new THREE.Quaternion().setFromAxisAngle(new V3(this.move.z, 0, -this.move.x), dist / this.cubeS));
+      let low = 0; for (let i = 0; i < 8; i++) { const v = new V3(i & 1 ? 1 : -1, i & 2 ? 1 : -1, i & 4 ? 1 : -1).multiplyScalar(this.cubeS).applyQuaternion(this.rollQ); low = Math.min(low, v.y); }
+      y = -low + 0.01;
+    }
+    this.body.position.set(this.pos.x, y, this.pos.z);
+    const lean = new V3(acc.z, 0, -acc.x).multiplyScalar(0.06); const la = Math.min(0.35, lean.length());
+    if (la > 1e-4) this.tilt.quaternion.slerp(new THREE.Quaternion().setFromAxisAngle(lean.normalize(), la), Math.min(1, dt * 4)); else this.tilt.quaternion.slerp(new THREE.Quaternion(), Math.min(1, dt * 4));
+    if (this.equator) this.equator.rotation.y = this.spin;
+    if (this.cube) { if (this.rolls) this.cube.quaternion.copy(this.rollQ); else this.cube.rotation.y = this.heading * 0.25 + this.spin; }
+    this.head.position.set(this.pos.x, y, this.pos.z);
+    this.shadow.position.set(this.pos.x, hillY(this.pos.x, this.pos.z) + 0.006, this.pos.z);
+    if (this.soft) this.softPose(dt, now, sp, acc, t, y, step); else {
+    // stem: diamond at the top of the head, ball on a spring above the shell
+    const U = this.U, top = new V3(this.pos.x, y + U * 0.78, this.pos.z), goal = new V3(this.pos.x, y + U * 1.79, this.pos.z);
+    if (!this.ballPos) this.ballPos = goal.clone();
+    this.ballVel.addScaledVector(goal.clone().sub(this.ballPos), 90 * dt).multiplyScalar(Math.exp(-dt * 7)); this.ballPos.addScaledVector(this.ballVel, dt);
+    const off = this.ballPos.clone().sub(top), L0 = U * 1.01; off.setLength(L0); if (off.y < L0 * 0.4) { off.y = L0 * 0.4; off.setLength(L0); } this.ballPos.copy(top).add(off);
+    this.diamond.position.copy(top); this.ball.position.copy(this.ballPos);
+    this.stemGeo.setPositions([top.x, top.y, top.z, this.ballPos.x, this.ballPos.y, this.ballPos.z]);
+    this.skeleton(sp, acc); }
+    // 5. rope: the first point is pinned under the orb, every other point is pulled along behind it
+    const r = this.rope.pts, life = S.trailLife;
+    if (this.soft) r[0].p.set(this.pos.x - this.move.x * this.R, this.ballY, this.pos.z - this.move.z * this.R);   // the rope leaves from the back centre of the ball
+    else r[0].p.set(this.pos.x, hillY(this.pos.x, this.pos.z), this.pos.z);
+    for (let i = 1; i < r.length; i++) {
+      const a = r[i - 1].p, b = r[i].p, d = b.clone().sub(a), L = d.length();
+      if (L > this.ropeSeg) b.copy(a).addScaledVector(d, this.ropeSeg / L);
+      const gy = hillY(b.x, b.z); b.y = this.soft ? gy + Math.max(0, a.y - hillY(a.x, a.z)) * 0.985 : gy;   // soft: hangs at the ball's centre height and slowly drapes down
+    }
+    for (let i = 0; i < r.length; i++) r[i].t = now - (i / (r.length - 1)) * life * 0.98;
+    if (!trails.includes(this.rope)) trails.push(this.rope);
+  }
+  skeleton(sp, acc) {                      // stick figure: spine, arms, legs; limbs swing with travel and trail the motion
+    const U = this.U, R = this.R, f = this.move, rt = new V3(-f.z, 0, f.x), sw = Math.sin(this.walk) * Math.min(1, sp * 1.6) * 0.7;
+    const drag = Math.min(0.6, sp * 0.45), P = (x, y, fw) => new V3(rt.x * x + f.x * fw, y, rt.z * x + f.z * fw);
+    const neck = P(0, U * 0.78, 0), chest = P(0, U * 0.1, -drag * 0.1), pelvis = P(0, -R * 0.5, -drag * 0.25);
+    const limb = (root, side, len1, len2, swing, down) => { const k = P(side * U * 0.35, root.y - Math.cos(swing) * len1 * down, Math.sin(swing) * len1 - drag * len1 * 0.4).add(new V3(root.x, 0, root.z));
+      const e = k.clone().add(P(side * U * 0.12, -len2 * down, Math.sin(swing * 1.3) * len2 - drag * len2 * 0.6)); return [k, e]; };
+    const [kl, fl] = limb(pelvis, -1, R * 0.32, R * 0.28, sw, 1), [kr, fr] = limb(pelvis, 1, R * 0.32, R * 0.28, -sw, 1);
+    const sl = P(-U * 0.42, chest.y, chest.clone().dot(f)), sr = P(U * 0.42, chest.y, chest.clone().dot(f));
+    const [el, hl] = limb(sl, -1, R * 0.3, R * 0.26, -sw * 0.8, 0.9), [er, hr] = limb(sr, 1, R * 0.3, R * 0.26, sw * 0.8, 0.9);
+    const hipL = P(-U * 0.18, pelvis.y, pelvis.clone().dot(f)), hipR = P(U * 0.18, pelvis.y, pelvis.clone().dot(f));
+    const segs = [[neck, chest], [chest, pelvis], [sl, sr], [sl, el], [el, hl], [sr, er], [er, hr], [hipL, hipR], [hipL, kl], [kl, fl], [hipR, kr], [kr, fr]];
+    const a = this.skelGeo.attributes.position.array; a.fill(0); segs.forEach(([p, q], i) => a.set([p.x, p.y, p.z, q.x, q.y, q.z], i * 6)); this.skelGeo.attributes.position.needsUpdate = true;
+    const j = this.jointGeo.attributes.position.array; [neck, chest, pelvis, sl, sr, el, er, hl, hr, kl, kr, fl].forEach((p, i) => j.set([p.x, p.y, p.z], i * 3)); this.jointGeo.attributes.position.needsUpdate = true;
+  }
+  dispose() { agentGroup.remove(this.body); headGroup.remove(this.head, this.shadow, this.diamond, this.ball, this.stem); this.disposeFace(); trails = trails.filter(l => l !== this.rope); }
+}
+
+// ---------- HEADS cast (v0.8): Will's soft moulded plastic heads, ported from healthier/public/d1/yii.js (v30 heads), each in a thin bubble ----------
+// geometry is the d1 code as-is: filleted outline -> rounded bevel extrude -> tessellate -> pillow-puffed faces -> dot eyes that follow the puff
+const YU = 2 / 212;
+const sstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+function yPoly(n, r, rot = 0) { const s = new THREE.Shape(); for (let i = 0; i < n; i++) { const a = rot + i / n * Math.PI * 2, x = Math.sin(a) * r, y = Math.cos(a) * r; i ? s.lineTo(x, y) : s.moveTo(x, y); } s.closePath(); return s; }
+function yStar(points, ro, ri) { const s = new THREE.Shape(); for (let i = 0; i < points * 2; i++) { const a = i / (points * 2) * Math.PI * 2, r = i % 2 ? ri : ro, x = Math.sin(a) * r, y = Math.cos(a) * r; i ? s.lineTo(x, y) : s.moveTo(x, y); } s.closePath(); return s; }
+function yRect(w, h) { const s = new THREE.Shape(); s.moveTo(-w / 2, -h / 2); s.lineTo(w / 2, -h / 2); s.lineTo(w / 2, h / 2); s.lineTo(-w / 2, h / 2); s.closePath(); return s; }
+const Y_OUTLINES = {
+  triangle: () => { const o = new THREE.Shape(); o.moveTo(-82 * YU, -55 * YU); o.lineTo(82 * YU, -55 * YU); o.lineTo(-4 * YU, 70 * YU); o.closePath(); return o; },
+  hexagon: () => yPoly(6, 66 * YU),
+  star: () => yStar(8, 69 * YU, 48 * YU),
+  square: () => yRect(110 * YU, 110 * YU),
+};
+const Y_DEPTH = { triangle: .5, hexagon: .56, star: .46, square: .9 };
+const Y_EYES = { triangle: -.117, hexagon: .03, star: -.026, square: -.107, circle: -.034 };
+const Y_EYE_X = .295, Y_EYE_R = .085;
+const Y_FILLET = { triangle: .1, hexagon: .1, star: .12, square: .1 };
+const Y_BEVEL = { triangle: .085, hexagon: .09, star: .075, square: .09 };
+const Y_INFLATE = .07, Y_THIN_W = .24;
+function sdPoly(px, py, P) {
+  let d = (px - P[0][0]) ** 2 + (py - P[0][1]) ** 2, s = 1;
+  for (let i = 0, j = P.length - 1; i < P.length; j = i, i++) {
+    const ex = P[j][0] - P[i][0], ey = P[j][1] - P[i][1], wx = px - P[i][0], wy = py - P[i][1];
+    const h = Math.max(0, Math.min(1, (wx * ex + wy * ey) / (ex * ex + ey * ey))), bx = wx - ex * h, by = wy - ey * h;
+    d = Math.min(d, bx * bx + by * by);
+    const c1 = py >= P[i][1], c2 = py < P[j][1], c3 = ex * wy > ey * wx;
+    if ((c1 && c2 && c3) || (!c1 && !c2 && !c3)) s = -s;
+  }
+  return s * Math.sqrt(d);
+}
+function filletPts(src, r, n = 10) {
+  const P = src.slice(); if (P.length > 2 && P[0].distanceTo(P[P.length - 1]) < 1e-6) P.pop();
+  const out = [];
+  for (let i = 0; i < P.length; i++) {
+    const p = P[i], a = P[(i + P.length - 1) % P.length], b = P[(i + 1) % P.length];
+    const da = a.clone().sub(p), db = b.clone().sub(p), la = da.length(), lb = db.length(); da.divideScalar(la); db.divideScalar(lb);
+    const ang = Math.acos(Math.max(-1, Math.min(1, da.dot(db))));
+    const t = Math.min(r / Math.tan(ang / 2), la * .45, lb * .45);
+    const p1 = p.clone().addScaledVector(da, t), p2 = p.clone().addScaledVector(db, t);
+    for (let k = 0; k <= n; k++) { const s = k / n, u = 1 - s; out.push(new THREE.Vector2(u * u * p1.x + 2 * u * s * p.x + s * s * p2.x, u * u * p1.y + 2 * u * s * p.y + s * s * p2.y)); }
+  }
+  return out;
+}
+const softCache = {};
+function softHead(kind) {
+  if (softCache[kind]) return softCache[kind];
+  if (kind === 'circle') {               // the round head is a plain sphere in d1
+    const r = 60 * YU, g = new THREE.SphereGeometry(r, 72, 48), uv = g.attributes.uv;
+    for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * 2 * Math.PI * r, uv.getY(i) * Math.PI * r);
+    g.setAttribute('thin', new THREE.BufferAttribute(new Float32Array(g.attributes.position.count).fill(.3), 1));
+    const zOn = (x, y) => Math.sqrt(Math.max(0, r * r - x * x - y * y));
+    const eyeGeo = (ex, ey) => { const e = new THREE.RingGeometry(0, Y_EYE_R, 40, 6), p = e.attributes.position, z0 = zOn(ex, ey);
+      for (let i = 0; i < p.count; i++) p.setZ(i, zOn(ex + p.getX(i), ey + p.getY(i)) - z0); e.computeVertexNormals(); return e; };
+    return (softCache[kind] = { geo: g, eyeZ: (ex, ey) => zOn(ex, ey) + .006, eyeGeo, h: 2 * r });
+  }
+  const outer = Y_OUTLINES[kind](), D = Y_DEPTH[kind];
+  const pts = filletPts(outer.getPoints(), Y_FILLET[kind]), arr = pts.map(v => [v.x, v.y]);
+  const BT = Math.min(.15, D * .3), BS = Y_BEVEL[kind];
+  let g = new THREE.ExtrudeGeometry(new THREE.Shape(pts), { depth: D - 2 * BT, bevelEnabled: true, bevelThickness: BT, bevelSize: BS, bevelOffset: -BS, bevelSegments: 6, curveSegments: 12, steps: 1 });
+  g.translate(0, 0, -(D - 2 * BT) / 2);
+  g = new TessellateModifier(.05, 8).modify(g);
+  g.deleteAttribute('normal'); g.deleteAttribute('uv'); g = mergeVertices(g, 1e-4);
+  const pos = g.attributes.position, n = pos.count, thin = new Float32Array(n), uv = new Float32Array(n * 2);
+  const pillow = (x, y) => Y_INFLATE * sstep(0, .32, Math.max(0, -sdPoly(x, y, arr)));
+  for (let i = 0; i < n; i++) {
+    const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i), inside = Math.max(0, -sdPoly(x, y, arr));
+    pos.setZ(i, z + Math.sign(z) * pillow(x, y) * Math.min(1, Math.abs(z) / (D / 2)));
+    thin[i] = 1 - sstep(0, Y_THIN_W, inside);
+    uv[i * 2] = x + z * .6; uv[i * 2 + 1] = y + z * .6;
+  }
+  g.setAttribute('thin', new THREE.BufferAttribute(thin, 1)); g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  g.computeVertexNormals(); g.computeBoundingBox();
+  const eyeGeo = (ex, ey) => {
+    const e = new THREE.RingGeometry(0, Y_EYE_R, 40, 6), p = e.attributes.position;
+    for (let i = 0; i < p.count; i++) p.setZ(i, pillow(ex + p.getX(i), ey + p.getY(i)) - pillow(ex, ey));
+    e.computeVertexNormals(); return e;
+  };
+  const bb = g.boundingBox;
+  return (softCache[kind] = { geo: g, eyeZ: (ex, ey) => D / 2 + pillow(ex, ey) + .006, eyeGeo, h: Math.max(bb.max.y - bb.min.y, (bb.max.x - bb.min.x) / 0.87), cy: (bb.max.y + bb.min.y) / 2 });   // size by height, or by width for the wide ones, so every head sits in its bubble like the hexagon in the reference
+}
+let headNormalTex = null, headEnvTex = null;
+function softNormalMap(S = 256) {         // d1's soft plastic grain (value noise -> normal map)
+  if (headNormalTex) return headNormalTex;
+  const h = new Float32Array(S * S), rnd = (() => { let s = 7; return () => (s = (s * 16807) % 2147483647) / 2147483647; })();
+  for (const [cell, amp] of [[4, .6], [2, .4]]) {
+    const G = S / cell, grid = Array.from({ length: (G + 1) * (G + 1) }, rnd);
+    for (let gy = 0; gy <= G; gy++) grid[gy * (G + 1) + G] = grid[gy * (G + 1)];
+    for (let gx = 0; gx <= G; gx++) grid[G * (G + 1) + gx] = grid[gx];
+    for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+      const fx = x / cell, fy = y / cell, ix = Math.floor(fx), iy = Math.floor(fy), tx = sstep(0, 1, fx - ix), ty = sstep(0, 1, fy - iy);
+      const a = grid[iy * (G + 1) + ix], b = grid[iy * (G + 1) + ix + 1], c = grid[(iy + 1) * (G + 1) + ix], d = grid[(iy + 1) * (G + 1) + ix + 1];
+      h[y * S + x] += amp * ((a * (1 - tx) + b * tx) * (1 - ty) + (c * (1 - tx) + d * tx) * ty);
+    }
+  }
+  const cv = document.createElement('canvas'); cv.width = cv.height = S; const ctx = cv.getContext('2d'), img = ctx.createImageData(S, S);
+  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+    const dx = (h[y * S + (x + 1) % S] - h[y * S + (x + S - 1) % S]) * 2, dy = (h[((y + 1) % S) * S + x] - h[((y + S - 1) % S) * S + x]) * 2;
+    const l = Math.hypot(dx, dy, 1), o = (y * S + x) * 4;
+    img.data[o] = (-dx / l * .5 + .5) * 255; img.data[o + 1] = (-dy / l * .5 + .5) * 255; img.data[o + 2] = (1 / l * .5 + .5) * 255; img.data[o + 3] = 255;
+  }
+  ctx.putImageData(img, 0, 0);
+  const t = new THREE.CanvasTexture(cv); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(3, 3); t.colorSpace = THREE.NoColorSpace;
+  return (headNormalTex = t);
+}
+function softEnv() { if (!headEnvTex) { const pm = new THREE.PMREMGenerator(mainR); headEnvTex = pm.fromScene(new RoomEnvironment(), 0.04).texture; pm.dispose(); } return headEnvTex; }
+function glowPatch(m, glowHex) {          // d1 edge glow: the thin rim of the moulding catches light
+  m.onBeforeCompile = (sh) => {
+    sh.uniforms.glowCol = { value: new THREE.Color(glowHex) }; sh.uniforms.glowAmt = { value: .24 };
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float thin;\nvarying float vThin;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvThin = thin;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform vec3 glowCol;\nuniform float glowAmt;\nvarying float vThin;')
+      .replace('#include <opaque_fragment>', 'float headFr = pow(1.0 - saturate(dot(normal, normalize(vViewPosition))), 2.0);\noutgoingLight += glowCol * glowAmt * vThin * (0.35 + 0.65 * headFr);\n#include <opaque_fragment>');
+  };
+}
+const softMatCache = {};
+function softMats(hc) {                   // d1 tintedHead(): coloured soft plastic, sheen + light clearcoat; eyes = darker shade of the same hue
+  if (softMatCache[hc.head]) return softMatCache[hc.head];
+  const head = new THREE.MeshPhysicalMaterial({ color: hc.head, roughness: .52, envMap: softEnv(), envMapIntensity: .35, sheen: .5,
+    sheenColor: new THREE.Color(hc.head).lerp(new THREE.Color('#ffffff'), .5), sheenRoughness: .5, clearcoat: .25, clearcoatRoughness: .4,
+    normalMap: softNormalMap(), normalScale: new THREE.Vector2(.05, .05) });
+  glowPatch(head, new THREE.Color(hc.head).lerp(new THREE.Color('#ffffff'), .7));
+  const eye = new THREE.MeshBasicMaterial({ color: hc.eye, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 });
+  head.emissive.set(hc.head); head.emissiveIntensity = 0;   // at night the heads glow a little from inside so they still read
+  // cel look (d1 buildCellYii): flat 3-step toon, lifted by a half-strength emissive, ink outline from an inverted hull
+  const cel = new THREE.MeshToonMaterial({ color: hc.head, gradientMap: TOON_STEPS, emissive: new THREE.Color(hc.head).multiplyScalar(.36), toneMapped: false });
+  const celEye = new THREE.MeshBasicMaterial({ color: hc.eye, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 });
+  return (softMatCache[hc.head] = { head, eye, cel, celEye });
+}
+const TOON_STEPS = (() => { const d = new Uint8Array([212, 212, 212, 255, 242, 242, 242, 255, 255, 255, 255, 255]); const t = new THREE.DataTexture(d, 3, 1); t.minFilter = t.magFilter = THREE.NearestFilter; t.needsUpdate = true; return t; })();
+const INK_HULL = new THREE.MeshBasicMaterial({ color: '#26262a', side: THREE.BackSide, toneMapped: false });
+// colours: the green is sampled from Will's reference render; the rest follow the same light-head / darker-eye recipe in the team palette
+const HEAD_CHARS = {   // sampled from Will's "A world of research on your case" frame: light moulded head + darker dot eyes of the same hue
+  green:  { head: '#c5ee70', eye: '#55c06a', P: '#55c06a', S: '#c5ee70', move: 'hexagon', phrases: ['MAPPING…', '{n} STUDIES FOUND', 'LINKING RESULTS', 'TRACING A PATH'] },
+  orange: { head: '#f6bb80', eye: '#d0814f', P: '#e0904f', S: '#f6bb80', move: 'burst', phrases: ['LOOKING...', 'SEARCHING...', 'FOUND A LEAD', 'SCANNING INDEX…'] },
+  mint:   { head: '#7aeeb8', eye: '#5fc8b3', P: '#3fcf9a', S: '#7aeeb8', move: 'dodecagon', phrases: ['SORTING…', 'SUMMARIZING…', '{n} THEMES MERGED', 'SYNCING…'] },
+  blue:   { head: '#a8c1d6', eye: '#3a4a75', P: '#5b7bb0', S: '#a8c1d6', move: 'burst', phrases: ['PULLING {n} NEW TRIALS', 'FETCHING…', '{n} PAPERS PULLED', 'LOADING DATA…'] },
+  red:    { head: '#ee6878', eye: '#bb5f68', P: '#e44d62', S: '#ee6878', move: 'dodecagon', phrases: ['CHECKING…', 'VERIFYING SOURCE', '{n} CLAIMS CHECKED', 'FLAGGED 1 ISSUE'] },
+};
+for (const c of Object.values(HEAD_CHARS)) { c.face = c.move; c.cP = new THREE.Color(c.P); c.cS = new THREE.Color(c.S); }
+const HEAD_ROSTER = [['hexagon', 'green'], ['hexagon', 'orange'], ['star', 'mint'], ['hexagon', 'blue'], ['triangle', 'red'], ['square', 'green'],
+  ['hexagon', 'mint'], ['circle', 'orange'], ['star', 'red'], ['hexagon', 'red'], ['triangle', 'blue'], ['square', 'orange'], ['circle', 'mint'], ['star', 'green'], ['hexagon', 'blue']];
+// bubble face: faint fill + the two little highlight dots at the upper right (positions measured off Will's reference)
+const bubbleTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d'); g.translate(128, 128);
+  const gr = g.createRadialGradient(-20, -30, 10, 0, 0, 128); gr.addColorStop(0, 'rgba(255,255,255,0.16)'); gr.addColorStop(.85, 'rgba(255,255,255,0.08)'); gr.addColorStop(1, 'rgba(255,255,255,0.22)');
+  g.fillStyle = gr; g.beginPath(); g.arc(0, 0, 127, 0, Math.PI * 2); g.fill();
+  g.fillStyle = 'rgba(150,150,150,0.75)'; g.beginPath(); g.arc(.57 * 128, -.63 * 128, .058 * 128, 0, Math.PI * 2); g.fill();
+  g.beginPath(); g.arc(.63 * 128, -.52 * 128, .027 * 128, 0, Math.PI * 2); g.fill();
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; })();
+const camFlat = new V3();
+Orb.prototype.buildSoft = function () {
+  const hc = this.ch, kind = this.headKind, c = softHead(kind), M = softMats(hc); this.M = M;
+  // wire ball: the camera-facing outline (built in the constructor) + "middle lines" (great circles) that turn with the roll
+  this.rings = new THREE.Group(); this.body.add(this.rings);
+  const ringAxes = [[0, 0, 0], [Math.PI / 2, 0, 0], [0, 0, Math.PI / 2]];
+  for (let i = 0; i < 3; i++) { const r = fatLoop(circlePts(this.R, 96, 'xz'), 1.3, { opacity: 0.85 }); r.rotation.set(...ringAxes[i]); r.visible = i < S.ballLines; this.rings.add(r); }
+  this.rollQ = new THREE.Quaternion().setFromAxisAngle(new V3(1, 0, 0), rand(-0.35, 0.35)); this.rollW = 0; this.rollAxis = new V3(1, 0, 0);
+  this.fly = 0; this.flyT = rand(4, 14); this.flyGoal = 0; this.ballY = this.R;
+  // head: yaw (turns to where it goes / the viewer) > pitch > mesh; it stays upright in the middle of the ball, the ball rolls round it
+  this.head = new THREE.Group(); this.yaw = new THREE.Group(); this.pitch = new THREE.Group(); this.head.add(this.yaw); this.yaw.add(this.pitch);
+  const s = this.R * 2 * 0.665 / (kind === 'circle' ? c.h * 1.13 : c.h), mesh = new THREE.Group(); mesh.scale.setScalar(s); mesh.position.y = -(c.cy || 0) * s;
+  this.headMesh = new THREE.Mesh(c.geo, M.head); mesh.add(this.headMesh);
+  this.eyes = [];
+  for (const sd of [-1, 1]) { const ex = sd * Y_EYE_X, ey = Y_EYES[kind], e = new THREE.Mesh(c.eyeGeo(ex, ey), M.eye); e.position.set(ex, ey, c.eyeZ(ex, ey)); mesh.add(e); this.eyes.push(e); }
+  if (!c.geo.boundingSphere) c.geo.computeBoundingSphere();
+  const bs = c.geo.boundingSphere, k = 1 + .03 / bs.radius;          // ink outline for the cel look, scaled about the head's own centre (as in d1)
+  this.hull = new THREE.Mesh(c.geo, INK_HULL); this.hull.scale.setScalar(k); this.hull.position.copy(bs.center).multiplyScalar(1 - k); mesh.add(this.hull);
+  this.pitch.add(mesh); this.mesh = mesh; headGroup.add(this.head); this.applyLook();
+  this.yawNow = Math.atan2(this.move.x, this.move.z);
+  // some carry the little arrow: a diamond at the top of the ball, a stem, and an arrowhead on a spring that lags behind the motion
+  this.hasArrow = Math.random() < S.arrowShare;
+  if (this.hasArrow) {
+    this.diamond = new THREE.Sprite(new THREE.SpriteMaterial({ map: diamondTex, color: orbLine, transparent: true, depthWrite: false })); this.diamond.scale.setScalar(this.R * 0.09); headGroup.add(this.diamond);
+    this.arrow = new THREE.Sprite(new THREE.SpriteMaterial({ map: arrowTex, color: orbLine, transparent: true, depthWrite: false })); this.arrow.scale.setScalar(this.R * 0.3); headGroup.add(this.arrow);
+    this.stemGeo = new LineSegmentsGeometry(); this.stemGeo.setPositions([0, 0, 0, 0, 1, 0]);
+    const sm = new LineMaterial({ color: orbLine, linewidth: 1.3, transparent: true, depthWrite: false }); sm.userData.w = 1.3; fatMats.push(sm);
+    this.stem = new LineSegments2(this.stemGeo, sm); this.stem.frustumCulled = false; headGroup.add(this.stem);
+    this.ballPos = null; this.ballVel = new V3(); const ar = this.arrow, tip = new V3(), base = new V3();
+    ar.onBeforeRender = (r, sc, cam) => {   // point the arrowhead along the stem as this camera sees it
+      base.copy(this.diamond.position).project(cam); tip.copy(ar.position).project(cam);
+      const asp = cam.isOrthographicCamera ? (cam.right - cam.left) / (cam.top - cam.bottom) : cam.aspect;
+      ar.material.rotation = Math.atan2(tip.y - base.y, (tip.x - base.x) * asp) - Math.PI / 2; };
+  }
+  const glow = new THREE.Mesh(shadowGeoGlow, new THREE.MeshBasicMaterial({ map: glowTex, color: hc.P, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false }));
+  glow.scale.setScalar(this.R * 3.2); glow.visible = false; headGroup.add(glow); this.glow = glow;
+  this.disposeFace = () => { headGroup.remove(glow); if (this.arrow) headGroup.remove(this.arrow, this.diamond, this.stem); };
+};
+const arrowTex = spriteTex(g => { g.fillStyle = '#fff'; g.beginPath(); g.moveTo(0, -50); g.lineTo(54, 44); g.lineTo(-54, 44); g.closePath(); g.fill(); });
+Orb.prototype.applyLook = function () {
+  const cel = S.headLook === 'cel'; this.headMesh.material = cel ? this.M.cel : this.M.head; this.eyes.forEach(e => e.material = cel ? this.M.celEye : this.M.eye); this.hull.visible = cel;
+};
+Orb.prototype.softPose = function (dt, now, sp, acc, t, y0, step) {
+  const R = this.R, w = S.headWobble;
+  // hamster ball: rolls along the ground, and now and then floats up for a while (still turning from its momentum) and settles back down
+  this.flyT -= dt;
+  if (this.flyT <= 0) { if (this.flyGoal) { this.flyGoal = 0; this.flyT = rand(6, 16) / Math.max(0.05, S.floatOften); } else { this.flyGoal = rand(0.35, 0.8); this.flyT = rand(2, 5); } }
+  this.fly += (this.flyGoal - this.fly) * Math.min(1, dt * 1.6);
+  const ground = hillY(this.pos.x, this.pos.z), y = ground + R + this.fly + (this.fly > 0.05 ? Math.sin(t * 2.1) * 0.04 * Math.min(1, this.fly * 4) : 0);
+  this.ballY = y;
+  const dist = step.length(), onGround = this.fly < 0.06;
+  if (onGround && dist > 1e-6) { this.rollAxis.set(this.move.z, 0, -this.move.x).normalize(); this.rollW = dist / dt / R; }
+  else this.rollW *= Math.exp(-dt * 0.9);   // in the air the ball keeps spinning, slowly losing it
+  if (this.rollW > 1e-4) this.rollQ.premultiply(new THREE.Quaternion().setFromAxisAngle(this.rollAxis, this.rollW * dt));
+  this.rings.quaternion.copy(this.rollQ); this.rings.children.forEach((r, i) => r.visible = i < S.ballLines);
+  this.tilt.quaternion.identity();
+  this.body.position.set(this.pos.x, y, this.pos.z);
+  this.shadow.scale.setScalar(R * 2.6 * (1 + this.fly * 0.6)); this.shadow.material.opacity = 1 / (1 + this.fly * 2.5);
+  // head: face where it is going, pulled toward the viewer so the eyes mostly read; it never rolls with the ball
+  camFlat.copy(ortho.position).sub(camTarget); const el = Math.atan2(camFlat.y, Math.hypot(camFlat.x, camFlat.z)); camFlat.y = 0;
+  const camW = camFlat.lengthSq() > 1e-4 ? S.headFaceCam : 0; if (camW) camFlat.normalize();
+  const fx = this.move.x * (1 - camW) + camFlat.x * camW, fz = this.move.z * (1 - camW) + camFlat.z * camW;
+  let goal = Math.atan2(fx, fz), d = goal - this.yawNow; d = Math.atan2(Math.sin(d), Math.cos(d));
+  this.yawNow += d * Math.min(1, dt * 3.2); this.yaw.rotation.y = this.yawNow;
+  const fwdAcc = acc.x * this.move.x + acc.z * this.move.z;
+  this.pitch.rotation.x = -el * 0.35 + THREE.MathUtils.clamp(fwdAcc * 0.05, -0.25, 0.25) * w + Math.sin(t * 3.1) * 0.04 * w * Math.min(1, sp);
+  this.pitch.rotation.z = Math.sin(t * 2.3 + 1) * 0.06 * w * Math.min(1, sp + 0.3);
+  this.head.position.set(this.pos.x, y + Math.sin(t * 1.7 + 2) * 0.015 * w, this.pos.z);
+  if (this.hasArrow) {
+    const top = new V3(this.pos.x, y + R * 0.97, this.pos.z), goalP = new V3(this.pos.x, y + R * 1.5, this.pos.z);
+    if (!this.ballPos) this.ballPos = goalP.clone();
+    this.ballVel.addScaledVector(goalP.clone().sub(this.ballPos), 80 * dt).multiplyScalar(Math.exp(-dt * 6)); this.ballPos.addScaledVector(this.ballVel, dt);
+    const off = this.ballPos.clone().sub(top), L0 = R * 0.5; off.setLength(L0); if (off.y < L0 * 0.5) { off.y = L0 * 0.5; off.setLength(L0); } this.ballPos.copy(top).add(off);
+    const tipBase = top.clone().addScaledVector(off, 0.72);
+    this.diamond.position.copy(top); this.arrow.position.copy(top).addScaledVector(off, 0.86);
+    this.stemGeo.setPositions([top.x, top.y, top.z, tipBase.x, tipBase.y, tipBase.z]);
+  }
+  if (this.pop) { this.pop = Math.max(0, this.pop - dt * 2.2); this.head.scale.setScalar(1 + 0.32 * Math.sin(this.pop * Math.PI)); }   // colour switch: a little pop
+  if (this.flash) { this.flash = Math.max(0, this.flash - dt * 0.8); this.outline.material.color.copy(orbLine).lerp(this.ch.cP, this.flash); }
+  if (S.headLook !== 'cel') this.headMesh.material.emissiveIntensity = nightOn ? 0.3 : 0;
+  if (Math.random() < dt * 0.05) say(this, now, false);
+};
+
+// ---------- ROADS world (v0.10): flat, colour-coded route lines instead of the 3D blocks (after Will's traffic-map reference) ----------
+// A faint street grid underneath, and five coloured routes running between hubs. Where routes share a stretch they run side by side
+// as a bundle (so busy corridors read thick), then split off again. Heads ride the routes like little trains; at a hub where another
+// route passes they sometimes switch onto it and take on its colour.
+let agents = [];
+const ROADS = { routes: [], nets: {}, group: new THREE.Group() };   // group = the active world's map
+// SUBWAY world (v0.11, after Will's subway-map reference): same idea, stricter rules. Lines only run at 0°, 45° or 90°, each bend is
+// a tight rounded corner (never a loop or a free curve), and lines that share a stretch run as one solid ribbon of colours.
+const ROUTE_DEFS = [   // colour (a HEAD_CHARS key) + a closed loop of hubs; one-way, like trains
+  { col: 'green',  dir: 1,  hubs: [0, 1, 6, 13, 10, 9, 5] },
+  { col: 'orange', dir: -1, hubs: [2, 6, 13, 7, 3] },
+  { col: 'mint',   dir: 1,  hubs: [3, 4, 8, 7] },
+  { col: 'blue',   dir: -1, hubs: [5, 6, 7, 8, 12, 11, 10] },
+  { col: 'red',    dir: 1,  hubs: [1, 2, 6, 13, 11, 10, 9, 5, 6] },
+];
+const HUB_XZ = [[-8.6, -6.2], [-5.2, -8.4], [0.4, -7.6], [5.6, -8.2], [8.8, -4.6], [-8.2, 0.6], [-3.2, -2.6], [2.6, -1.4], [7.4, 1.4], [-7.4, 6.6], [-2.4, 5.2], [3.2, 7.4], [8.4, 7.6], [-0.2, 2.2]];
+// v0.11b: the map is no longer a fixed square. Each net keeps its own hubs + route loops as live state and keeps growing outward:
+// every few seconds a line pushes out a new stop past the edge (drawn as a growing stroke in its colour), sometimes a second line
+// bends over to share it, the street grid spreads to cover the new ground, a new head hops on there, and the camera eases out.
+const snapHub = (SUB, [x, z]) => SUB ? [Math.round(x * 2) / 2, Math.round(z * 2) / 2] : [x, z];
+function buildNet(style) {
+  const SUB = style === 'subway', GAP = SUB ? 0.19 : 0.16;
+  let seed = SUB ? 29 : 11; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const G = new THREE.Group(); G.visible = false; scene.add(G); const live = new THREE.Group(); G.add(live);
+  const gridMat = new THREE.LineBasicMaterial({ color: '#d6d6d4', transparent: true, opacity: SUB ? 0.35 : 0.7 });
+  const gridLines = new THREE.LineSegments(new THREE.BufferGeometry(), gridMat); gridLines.frustumCulled = false; G.add(gridLines); G.userData.gridMat = gridMat;
+  const net = { style, SUB, GAP, rnd, group: G, live, gridLines, grid: [], tiles: new Set(), edges: {}, liveMats: [], routes: [], hubs: [], defs: [] };
+  resetNet(net); return net;
+}
+function resetNet(net) {
+  net.hubs = HUB_XZ.map((h) => snapHub(net.SUB, h)); net.defs = ROUTE_DEFS.map((d, ri) => ({ ...d, ri, hubs: [...d.hubs] })); net.edges = {};
+  growGrid(net); rebuildNet(net);
+}
+const netExtent = (net) => net.hubs.reduce((m, [x, z]) => Math.max(m, Math.abs(x), Math.abs(z)), HALF - 1);
+function netBox(net) { const b = { x0: 1e9, x1: -1e9, z0: 1e9, z1: -1e9 }; for (const [x, z] of net.hubs) { b.x0 = Math.min(b.x0, x); b.x1 = Math.max(b.x1, x); b.z0 = Math.min(b.z0, z); b.z1 = Math.max(b.z1, z); } return b; }
+function netView(net) {   // centre of the map + how tall the iso frame must be to hold it (screen axes of the 45° iso camera)
+  const b = netBox(net), cx = (b.x0 + b.x1) / 2, cz = (b.z0 + b.z1) / 2; let u = 0, v = 0;
+  for (const [x, z] of net.hubs) { const dx = x - cx, dz = z - cz; u = Math.max(u, Math.abs(dx - dz) / Math.SQRT2); v = Math.max(v, Math.abs(dx + dz) / Math.SQRT2 * 0.577); }
+  return { cx, cz, F: Math.max(2 * v, 2 * u / (16 / 9)) + 3 }; }
+// 1. faint neighbourhood street grids, laid tile by tile as the network spreads (each tile its own spacing and slight twist)
+function growGrid(net) {
+  const T = 4, B = netBox(net), rnd = net.rnd, SUB = net.SUB; let added = false; const lo = (v) => Math.floor((v - 6) / T) * T, hi = (v) => Math.ceil((v + 6) / T) * T;
+  for (let tx = Math.min(-HALF, lo(B.x0)); tx < Math.max(HALF, hi(B.x1)); tx += T) for (let tz = Math.min(-HALF, lo(B.z0)); tz < Math.max(HALF, hi(B.z1)); tz += T) {
+    const key = tx + ',' + tz; if (net.tiles.has(key)) continue; net.tiles.add(key); added = true;
+    const sp = SUB ? 0.5 : 0.28 + rnd() * 0.32, rot = SUB ? 0 : (rnd() - 0.5) * 0.35, cx = tx + T / 2, cz = tz + T / 2, c = Math.cos(rot), s = Math.sin(rot);
+    const put = (u0, v0, u1, v1) => { const p = (u, v) => [cx + u * c - v * s, cz + u * s + v * c];
+      const a = p(u0, v0), b = p(u1, v1); if (rnd() < 0.12) return; net.grid.push(a[0], 0.004, a[1], b[0], 0.004, b[1]); };
+    for (let u = -T / 2; u <= T / 2 + 1e-6; u += sp) for (let v = -T / 2; v < T / 2 - 1e-6; v += sp) { put(u, v, u, Math.min(T / 2, v + sp)); put(v, u, Math.min(T / 2, v + sp), u); }
+  }
+  if (added) { net.gridLines.geometry.dispose(); const gg = new THREE.BufferGeometry(); gg.setAttribute('position', new THREE.Float32BufferAttribute(net.grid, 3)); net.gridLines.geometry = gg; }
+}
+// 2. the path between two hubs, cached per stretch so it never changes shape once laid (shared by every route on that stretch)
+function edgePath(net, a, b) {
+  const key = a < b ? a + '-' + b : b + '-' + a; if (net.edges[key]) return net.edges[key];
+  const A = net.hubs[Math.min(a, b)], B = net.hubs[Math.max(a, b)], rnd = net.rnd;
+  let pts = [new V3(A[0], 0, A[1]), new V3(B[0], 0, B[1])];
+  if (net.SUB) {   // octilinear: one straight run + one 45° run (order picked per stretch), then round the bend
+    const dx = B[0] - A[0], dz = B[1] - A[1], m = Math.min(Math.abs(dx), Math.abs(dz)), diag = new V3(Math.sign(dx) * m, 0, Math.sign(dz) * m);
+    const mid = rnd() < 0.5 ? pts[0].clone().add(diag) : pts[1].clone().sub(diag);
+    const raw = [pts[0], mid, pts[1]].filter((p, i, arr) => i === 0 || p.distanceTo(arr[i - 1]) > 1e-3);
+    pts = [raw[0]];
+    for (let i = 1; i < raw.length - 1; i++) { const p = raw[i], a = raw[i - 1], b = raw[i + 1], r = Math.min(0.9, p.distanceTo(a) * .45, p.distanceTo(b) * .45);
+      const p1 = p.clone().addScaledVector(a.clone().sub(p).normalize(), r), p2 = p.clone().addScaledVector(b.clone().sub(p).normalize(), r);
+      for (let k = 0; k <= 8; k++) { const t = k / 8, u = 1 - t; pts.push(new V3(u * u * p1.x + 2 * u * t * p.x + t * t * p2.x, 0, u * u * p1.z + 2 * u * t * p.z + t * t * p2.z)); } }
+    pts.push(raw[raw.length - 1]);
+    const dense = [pts[0]]; for (let i = 1; i < pts.length; i++) { const L = pts[i].distanceTo(pts[i - 1]), n = Math.max(1, Math.ceil(L / 0.25)); for (let k = 1; k <= n; k++) dense.push(pts[i - 1].clone().lerp(pts[i], k / n)); }
+    return (net.edges[key] = { key, pts: dense, users: [] });
+  }
+  for (let d = 0; d < 5; d++) { const out = [pts[0]];
+    for (let i = 1; i < pts.length; i++) { const p = pts[i - 1], q = pts[i], L = p.distanceTo(q), m = p.clone().lerp(q, 0.5), n = new V3(-(q.z - p.z), 0, q.x - p.x).normalize();
+      m.addScaledVector(n, (rnd() - 0.5) * L * (d < 2 ? 0.32 : 0.2)); out.push(m, q); }
+    pts = out; }
+  return (net.edges[key] = { key, pts, users: [] });
+}
+// 3. routes: walk the hub loops, register who uses each stretch, then offset each route inside its bundle
+function rebuildNet(net) {
+  const { SUB, GAP, live } = net;
+  for (const o of [...live.children]) { live.remove(o); o.geometry?.dispose(); o.material?.dispose(); }
+  fatMats = fatMats.filter((m) => !net.liveMats.includes(m)); const mat0 = fatMats.length;
+  for (const e of Object.values(net.edges)) e.users = [];
+  const defs = net.defs.map((d) => ({ ...d, legs: d.hubs.map((h, i) => { const h2 = d.hubs[(i + 1) % d.hubs.length], e = edgePath(net, h, h2); if (!e.users.includes(d.ri)) e.users.push(d.ri); return { e, from: h, rev: h > h2 }; }) }));
+  const routes = defs.map((d) => {
+    const pts = [], hubAt = [];
+    for (const leg of d.legs) {
+      const { e } = leg, n = e.users.length, k = e.users.indexOf(d.ri), off = (k - (n - 1) / 2) * GAP;
+      let seg = e.pts.map((p, i) => { const a = e.pts[Math.max(0, i - 1)], b = e.pts[Math.min(e.pts.length - 1, i + 1)], t = new V3().subVectors(b, a).normalize();
+        return p.clone().addScaledVector(new V3(-t.z, 0, t.x), off); });
+      if (leg.rev) seg = seg.reverse();
+      hubAt.push({ hub: leg.from, i: pts.length }); pts.push(...seg.slice(0, -1));
+    }
+    const out = [], hubS = []; let carry = 0, acc = 0, hi = 0;   // uniform resample so motion is even
+    for (let i = 0; i < pts.length; i++) { const a = pts[i], b = pts[(i + 1) % pts.length], L = a.distanceTo(b);
+      while (hi < hubAt.length && hubAt[hi].i === i) { hubS.push({ hub: hubAt[hi].hub, s: acc + 0 }); hi++; }
+      let s = carry; for (; s < L; s += 0.05) out.push(new V3().lerpVectors(a, b, s / L)); carry = s - L; acc += L; }
+    const cum = [0]; for (let i = 1; i <= out.length; i++) cum.push(cum[i - 1] + out[i - 1].distanceTo(out[i % out.length]));
+    const ch = HEAD_CHARS[d.col], segs = []; for (let i = 0; i < out.length; i++) { const a = out[i], b = out[(i + 1) % out.length]; segs.push(a.x, 0.012, a.z, b.x, 0.012, b.z); }
+    const m = routeMat(net, ch.P);
+    const line = new LineSegments2(new LineSegmentsGeometry().setPositions(segs), m); line.renderOrder = 1; line.frustumCulled = false; live.add(line);
+    return { ...d, net, ch, pts: out, cum, len: cum[out.length], hubS, mat: m };
+  });
+  // hub markers: grey rings (roads) / white station discs with an ink ring (subway), where routes meet
+  net.hubs.forEach(([x, z], h) => { const n = routes.filter((r) => r.hubs.includes(h)).length; if (n < 2) return;
+    const R = SUB ? Math.max(0.24, n * GAP * 0.62) : 0.22;
+    if (SUB) { const disc = new THREE.Mesh(new THREE.CircleGeometry(R, 32).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#ffffff' })); disc.position.set(x, 0.03, z); disc.renderOrder = 2; live.add(disc); }
+    const ring = fatLoop(circlePts(R, 40, 'xz'), SUB ? 2.4 : 2); ring.position.set(x, 0.035, z); ring.renderOrder = 3; ring.material.userData.keepColor = true; ring.material.color.set(SUB ? '#151515' : '#9a9a9a'); live.add(ring); });
+  if (SUB) for (const e of Object.values(net.edges)) { if (!e.users.length) continue;   // small stops along each stretch: a black dot with a white rim
+    const cum = [0]; for (let i = 1; i < e.pts.length; i++) cum.push(cum[i - 1] + e.pts[i].distanceTo(e.pts[i - 1])); const L = cum[cum.length - 1];
+    for (let s = 1.5; s < L - 1.5; s += 3.3) { let i = 0; while (cum[i + 1] < s) i++; const p = e.pts[i];
+      if (net.hubs.some(([x, z]) => Math.hypot(p.x - x, p.z - z) < 0.8)) continue;
+      const dot = new THREE.Mesh(new THREE.CircleGeometry(0.075, 16).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#151515' })); dot.position.set(p.x, 0.03, p.z); dot.renderOrder = 3; live.add(dot);
+      const rim = new THREE.Mesh(new THREE.CircleGeometry(0.11, 16).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#ffffff' })); rim.position.set(p.x, 0.028, p.z); rim.renderOrder = 2; live.add(rim); } }
+  net.liveMats = fatMats.slice(mat0);
+  // riders keep their place: move each one onto the rebuilt copy of its route, at the nearest point to where it is
+  const old = net.routes; net.routes = routes; if (ROADS.nets[S.world] === net) ROADS.routes = routes;
+  for (const a of agents) if (a.route && old.includes(a.route)) { const nr = routes[a.route.ri]; let best = 0, bd = 1e9;
+    for (let i = 0; i < nr.pts.length; i++) { const d = nr.pts[i].distanceToSquared(a.pos); if (d < bd) { bd = d; best = i; } } a.route = nr; a.rs = nr.cum[best]; }
+}
+function routeMat(net, col) {
+  const m = net.SUB ? new LineMaterial({ color: col, linewidth: net.GAP * 1.04, worldUnits: true }) : new LineMaterial({ color: col, linewidth: 3.2, transparent: true, depthWrite: false });
+  m.userData.w = net.SUB ? net.GAP * 1.04 : 3.2; m.userData.keepColor = true; fatMats.push(m); return m;
+}
+function routeAt(r, s, out, tan) {
+  s = ((s % r.len) + r.len) % r.len; let lo = 0, hi = r.pts.length; while (hi - lo > 1) { const m = (lo + hi) >> 1; if (r.cum[m] <= s) lo = m; else hi = m; }
+  const a = r.pts[lo], b = r.pts[(lo + 1) % r.pts.length], f = (s - r.cum[lo]) / Math.max(1e-6, r.cum[lo + 1] - r.cum[lo]);
+  out.lerpVectors(a, b, f); if (tan) tan.subVectors(b, a).normalize(); return out;
+}
+for (const st of ['roads', 'subway']) ROADS.nets[st] = buildNet(st);
+ROADS.routes = ROADS.nets.roads.routes;
+
+// ---------- growth: pick a stretch near the edge, push a new stop out past it, and bend the line through it ----------
+const GROW = { t: 0, anim: null, fit: 1 };
+function pickWeighted(list) { let t = Math.random() * list.reduce((a, c) => a + c.w, 0); for (const c of list) if ((t -= c.w) <= 0) return c; return list[list.length - 1]; }
+function legsOf(net) { const out = [];
+  for (const d of net.defs) d.hubs.forEach((h, i) => { const h2 = d.hubs[(i + 1) % d.hubs.length], A = net.hubs[h], B = net.hubs[h2];
+    const mx = (A[0] + B[0]) / 2, mz = (A[1] + B[1]) / 2, L = Math.hypot(B[0] - A[0], B[1] - A[1]); out.push({ d, i, h, h2, A, B, mx, mz, L }); });
+  return out; }
+function planGrowth(net) {
+  const legs = legsOf(net), far = netExtent(net);
+  if (net.hubs.length < S.growMax) {
+    const B = netBox(net), cx = (B.x0 + B.x1) / 2, cz = (B.z0 + B.z1) / 2;
+    legs.forEach((c) => { const r = Math.hypot(c.mx - cx, c.mz - cz) / Math.max(1, Math.hypot(B.x1 - cx, B.z1 - cz)); c.w = Math.pow(Math.max(0.15, r), 3) * Math.min(1, c.L / 3) / Math.sqrt(c.d.hubs.length); });
+    for (let tries = 0; tries < 24; tries++) {
+      const c = pickWeighted(legs), ox = c.mx - cx, oz = c.mz - cz, r = Math.hypot(ox, oz) || 1;
+      let px = -(c.B[1] - c.A[1]) / (c.L || 1), pz = (c.B[0] - c.A[0]) / (c.L || 1); if (px * ox + pz * oz < 0) { px = -px; pz = -pz; }
+      let dx = px * 0.7 + ox / r * 0.3, dz = pz * 0.7 + oz / r * 0.3; const dl = Math.hypot(dx, dz) || 1; dx /= dl; dz /= dl;
+      if (net.SUB) { const a = Math.round(Math.atan2(dz, dx) / (Math.PI / 4)) * (Math.PI / 4); dx = Math.cos(a); dz = Math.sin(a); }   // subway pushes out along a 45° heading
+      const reach = Math.min(4.2, Math.max(2.2, c.L * rand(0.5, 0.8))), nh = snapHub(net.SUB, [c.mx + dx * reach + rand(-0.8, 0.8), c.mz + dz * reach + rand(-0.8, 0.8)]);
+      if (net.hubs.some(([x, z]) => Math.hypot(x - nh[0], z - nh[1]) < 2.1)) continue;
+      const idx = net.hubs.length, plan = { kind: 'new', net, idx, pos: nh, d: c.d, at: c.i, h: c.h, h2: c.h2, also: null };
+      // sometimes a second line bends over to share the new stop, so routes keep converging out there too
+      if (Math.random() < 0.45) { const near = legs.filter((o) => o.d !== c.d && Math.hypot(o.mx - nh[0], o.mz - nh[1]) < 5.5);
+        if (near.length) { const o = near[(Math.random() * near.length) | 0]; plan.also = { d: o.d, at: o.i, h: o.h, h2: o.h2 }; } }
+      return plan;
+    }
+  }
+  // full (or crowded): keep evolving anyway — a line reroutes through a nearby stop it didn't serve, or drops a detour
+  const d = net.defs[(Math.random() * net.defs.length) | 0];
+  if (d.hubs.length > 6 && Math.random() < 0.4) { const i = (Math.random() * d.hubs.length) | 0, a = d.hubs[(i - 1 + d.hubs.length) % d.hubs.length], b = d.hubs[(i + 1) % d.hubs.length];
+    if (a !== b) return { kind: 'drop', net, d, at: i }; }
+  const mine = legs.filter((c) => c.d === d), c = mine[(Math.random() * mine.length) | 0];
+  const cand = net.hubs.map((p, k) => ({ k, dist: Math.hypot(p[0] - c.mx, p[1] - c.mz) })).filter((o) => !d.hubs.includes(o.k) && o.dist < 6).sort((a, b) => a.dist - b.dist)[0];
+  return cand ? { kind: 'via', net, idx: cand.k, d, at: c.i, h: c.h, h2: c.h2 } : null;
+}
+function spliceVia(d, at, h, h2, idx) { d.hubs.splice(at + 1, 0, idx); }
+function growStep() {
+  const net = ROADS.nets[S.world]; if (!net || GROW.anim) return;
+  const plan = planGrowth(net); if (!plan) return;
+  if (plan.kind === 'drop') { plan.d.hubs.splice(plan.at, 1); rebuildNet(net); return; }
+  if (plan.kind === 'new') net.hubs.push(plan.pos);
+  // the growing stroke: from the leg's first stop out to the new one and back in, drawn in the line's colour
+  const path = [...orient(edgePath(net, plan.h, plan.idx), plan.h), ...orient(edgePath(net, plan.idx, plan.h2), plan.idx).slice(1)];
+  const segs = []; for (let i = 0; i < path.length - 1; i++) segs.push(path[i].x, 0.02, path[i].z, path[i + 1].x, 0.02, path[i + 1].z);
+  const geo = new LineSegmentsGeometry().setPositions(segs), m = routeMat(net, HEAD_CHARS[plan.d.col].P), line = new LineSegments2(geo, m);
+  line.renderOrder = 2; line.frustumCulled = false; geo.instanceCount = 0; net.group.add(line);
+  const [x, z] = net.hubs[plan.idx], R = net.SUB ? 0.3 : 0.22, pin = new THREE.Group(); pin.position.set(x, 0.04, z); pin.scale.setScalar(0.001); net.group.add(pin);
+  if (net.SUB) pin.add(new THREE.Mesh(new THREE.CircleGeometry(R, 32).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#ffffff' })));
+  const ring = fatLoop(circlePts(R, 40, 'xz'), 2.4); ring.material.userData.keepColor = true; ring.material.color.set(HEAD_CHARS[plan.d.col].P); pin.add(ring);
+  GROW.anim = { plan, line, geo, segN: segs.length / 6, pin, ring, t: 0, dur: 1.2 + path.length * 0.012 };
+}
+const orient = (e, from) => (e.key.split('-')[0] == from ? e.pts : [...e.pts].reverse());
+function growTick(dt) {
+  if (!roadsWorld()) { const k = Math.min(1, dt * 0.8), f0 = GROW.fit; GROW.fit += (1 - GROW.fit) * k; camTarget.x -= camTarget.x * k; camTarget.z -= camTarget.z * k; if (Math.abs(GROW.fit - f0) > 1e-5) resize(); return; }
+  const net = ROADS.nets[S.world];
+  if (S.grow && !GROW.anim) { GROW.t += dt; if (GROW.t > S.growEvery) { GROW.t = 0; growStep(); } }
+  const A = GROW.anim;
+  if (A) { A.t += dt; const u = Math.min(1, A.t / A.dur), e = 1 - Math.pow(1 - u, 2);
+    A.geo.instanceCount = Math.ceil(A.segN * e); const half = Math.min(1, Math.max(0, (e - 0.35) / 0.3)); A.pin.scale.setScalar(Math.max(0.001, half * (1 + 0.35 * Math.sin(half * Math.PI))));
+    if (u >= 1) { const { plan } = A; GROW.anim = null;
+      spliceVia(plan.d, plan.at, plan.h, plan.h2, plan.idx);
+      if (plan.also) spliceVia(plan.also.d, plan.also.at, plan.also.h, plan.also.h2, plan.idx);
+      net.group.remove(A.line, A.pin); A.geo.dispose(); fatMats = fatMats.filter((m) => m !== A.line.material && m !== A.ring.material); A.line.material.dispose(); A.ring.material.dispose();
+      growGrid(net); rebuildNet(net);
+      if (plan.kind === 'new') hopOn(net.routes[plan.d.ri], plan.idx); } }
+  const vw = netView(net), k = Math.min(1, dt * 0.5), f0 = GROW.fit; if (!net.F0) net.F0 = vw.F;
+  const goal = S.growCam ? Math.max(1, vw.F / net.F0) : 1, gx = S.growCam ? vw.cx : 0, gz = S.growCam ? vw.cz : 0;
+  GROW.fit += (goal - GROW.fit) * k; camTarget.x += (gx - camTarget.x) * k; camTarget.z += (gz - camTarget.z) * k;
+  if (Math.abs(GROW.fit - f0) > 1e-5) resize();
+}
+function hopOn(route, hub) {   // a new head pops up at the new stop and rides off on that line
+  if (S.cast !== 'heads' || agents.length >= S.headsMax) return;
+  const [k] = HEAD_ROSTER[agents.length % HEAD_ROSTER.length]; Orb.prototype.headKind = k;
+  const o = new Orb(route.ch, 'bubble', true); agents.push(o);
+  o.route = route; o.rs = (route.hubS.find((x) => x.hub === hub) || { s: 0 }).s; o.rv = 0; o.wait = 0; routeAt(route, o.rs, o.pos);
+  for (const q of o.rope.pts) q.p.set(o.pos.x, 0, o.pos.z); o.pop = 1; o.flash = 1;
+}
+Orb.prototype.joinRoad = function () {
+  const rs = ROADS.routes; this.route = rs[(Math.random() * rs.length) | 0]; this.rs = Math.random() * this.route.len; this.rv = 0; this.wait = 0;
+  this.setRouteColor(this.route, true); routeAt(this.route, this.rs, this.pos);
+};
+Orb.prototype.setRouteColor = function (route, silent) {
+  const ch = route.ch; if (this.ch === ch) return;
+  this.ch = ch; this.M = softMats(ch); this.applyLook(); this.rope.c = ch.cP; if (this.glow) this.glow.material.color.set(ch.P);
+  if (!silent) { this.pop = 1; this.outline.material.color.set(ch.P); this.flash = 1; }
+};
+Orb.prototype.roadStep = function (dt, pace) {
+  if (!this.route || !ROADS.routes.includes(this.route)) this.joinRoad();
+  const r = this.route, dir = r.dir;
+  // keep a gap: wait for anyone just ahead (on this route or crossing), but never deadlock for long
+  let blocked = false; const ahead = new V3(); routeAt(r, this.rs + dir * 0.3, ahead);
+  const fwd = ahead.sub(this.pos).normalize();
+  for (const o of agents) { if (o === this || !o.pos) continue; const dx = o.pos.x - this.pos.x, dz = o.pos.z - this.pos.z, d = Math.hypot(dx, dz);
+    if (d < (this.R + (o.R || .4)) * 1.15 && (dx * fwd.x + dz * fwd.z) / Math.max(d, 1e-4) > 0.1) blocked = true; }
+  this.wait = blocked ? this.wait + dt : 0;
+  const goal = blocked && this.wait < 1.6 ? 0 : 0.9 * this.kind.speed * pace * S.roadSpeed;
+  this.rv += (goal - this.rv) * Math.min(1, dt * (blocked ? 6 : 1.8));
+  const s0 = this.rs, s1 = s0 + this.rv * dt * dir; this.rs = s1;
+  // passing a hub: maybe switch onto another route that runs through it, and take on its colour
+  for (const h of r.hubS) {
+    const a = ((s0 % r.len) + r.len) % r.len, b = ((s1 % r.len) + r.len) % r.len;
+    const crossed = dir > 0 ? (a <= h.s && h.s < b) || (a > b && (h.s >= a || h.s < b)) : (b < h.s && h.s <= a) || (b > a && (h.s <= a || h.s > b));
+    if (!crossed) continue;
+    const others = ROADS.routes.filter((o) => o !== r && o.hubs.includes(h.hub));
+    if (others.length && Math.random() < S.switchChance) { const nr = others[(Math.random() * others.length) | 0];
+      this.route = nr; this.rs = nr.hubS.find((x) => x.hub === h.hub).s; this.setRouteColor(nr); }
+    break;
+  }
+  const next = routeAt(this.route, this.rs, new V3()); const step = next.sub(this.pos); step.y = 0;
+  this.vel.copy(step).divideScalar(Math.max(dt, 1e-4)); return step;
+};
+
+window.__lb = { grow: () => growStep(), nets: () => ROADS.nets, GROW, THREE, scene, R: () => mainR, agents: () => agents, mass: massBits, loose: looseBits, flying, applyPreset: k => applyPreset(k), step: n => { for (let i = 0; i < n; i++) { simTime += 1 / 30; for (const a of agents) a.update(1 / 30, simTime); updateHill(1 / 30, simTime); growTick(1 / 30); } } };
+function populate() {
+  agents.forEach(a => { if (a.errand && a.errand.carry) scene.remove(a.errand.carry); a.dispose(); }); agents = [];
+  looseBits.forEach(b => b.taken = false);
+  phrases.forEach(ph => ph.els.forEach(e => e.remove())); phrases = [];
+  if (S.cast === 'heads') { for (let i = 0; i < S.heads; i++) { const [k, c] = HEAD_ROSTER[i % HEAD_ROSTER.length]; Orb.prototype.headKind = k; agents.push(new Orb(HEAD_CHARS[c], 'bubble', true)); } return; }
+  if (S.cast === 'orbits') { for (let i = 0; i < S.orbs; i++) agents.push(i % 5 === 0 ? new Orb(CHARS.orbBlue, 'bubble') : i % 5 === 1 ? new Orb(CHARS.orbPink, 'bubble') : i % 5 === 2 ? new Orb(CHARS.orbBlue, 'cube') : i % 5 === 3 ? new Orb(CHARS.orbPink, 'cube') : new Orb(CHARS.orbGreen, 'cube')); return; }
+  for (let i = 0; i < S.cubes; i++) agents.push(new Cube());
+  for (let i = 0; i < S.cones; i++) agents.push(i % 2 ? new Cone(CHARS.coneBlue, 0.26, 0.62, 0.74) : new Cone(CHARS.coneGold, 0.32, 0.7, 0.7));
+  for (let i = 0; i < S.spheres; i++) agents.push(new Sphere());
+}
+
+// ---------- View 1: isometric <-> top-down (same orthographic camera, angle eases between) ----------
+const mainCanvas = document.getElementById('mainCanvas'), streetCanvas = document.getElementById('streetCanvas');
+const mainR = new THREE.WebGLRenderer({ canvas: mainCanvas, antialias: true });
+mainR.setPixelRatio(Math.min(2, devicePixelRatio));
+const ortho = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 200);
+const camTarget = new V3(0, 0, 0);
+const ISO = { el: Math.atan(1 / Math.SQRT2), az: Math.PI / 4 }, TOP = { el: Math.PI / 2 - 0.0005, az: 0 };
+let viewGoal = ISO, viewNow = { ...ISO }, frustum = 15;
+function placeOrtho() {
+  const d = 40; ortho.position.set(Math.cos(viewNow.el) * Math.sin(viewNow.az) * d, Math.sin(viewNow.el) * d, Math.cos(viewNow.el) * Math.cos(viewNow.az) * d).add(camTarget);
+  ortho.lookAt(camTarget); ortho.updateMatrixWorld();
+}
+// fisheye bend shared by both views: corners map to corners so the frame stays full, plus vignette + a hint of color fringe
+function makeFisheye(k, aspect) {
+  return new ShaderPass({
+    uniforms: { tDiffuse: { value: null }, k: { value: k }, aspect: { value: aspect }, vig: { value: 0.45 }, ca: { value: 0.0025 } },
+    vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
+    fragmentShader: `uniform sampler2D tDiffuse; uniform float k; uniform float aspect; uniform float vig; uniform float ca; varying vec2 vUv;
+      void main(){
+        vec2 p = vUv * 2.0 - 1.0; p.x *= aspect;
+        float r2 = dot(p,p), rc2 = aspect * aspect + 1.0;
+        vec2 q = p * (1.0 + k * r2) / (1.0 + k * rc2);
+        q.x /= aspect; vec2 uv = clamp(q * 0.5 + 0.5, 0.0, 1.0);
+        float c = ca * r2;
+        vec3 col = vec3(texture2D(tDiffuse, clamp(uv + vec2(c,0.0), 0.0, 1.0)).r, texture2D(tDiffuse, uv).g, texture2D(tDiffuse, clamp(uv - vec2(c,0.0), 0.0, 1.0)).b);
+        col *= 1.0 - vig * smoothstep(0.45, rc2 * 0.7, r2);
+        gl_FragColor = vec4(col, 1.0);
+      }`,
+  });
+}
+function warpFor(pass, k) {               // where a point lands after a fisheye bend (inverse of the shader's lookup)
+  return (x, y) => { const kk = k(), a = pass.uniforms.aspect.value; let px = x * a, py = y; const qx = px, qy = py;
+    for (let i = 0; i < 6; i++) { const r2 = px * px + py * py, f = (1 + kk * r2) / (1 + kk * (a * a + 1)); px = qx / f; py = qy / f; }
+    return [px / a, py]; };
+}
+const mainComposer = new EffectComposer(mainR, new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType, samples: 4 }));
+mainComposer.addPass(new RenderPass(scene, ortho));
+const bloomMain = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.6, 0.35, 0.85); mainComposer.addPass(bloomMain);
+const mainFish = makeFisheye(S.mainFishK, 16 / 9); mainFish.enabled = S.mainFish; mainComposer.addPass(mainFish);
+mainComposer.addPass(new OutputPass());
+mainCanvas.addEventListener('wheel', (e) => { e.preventDefault(); frustum = THREE.MathUtils.clamp(frustum * (1 + e.deltaY * 0.001), 5, 30); resize(); }, { passive: false });
+
+// ---------- View 2: 9:16 street camera with depth blur + fisheye ----------
+const streetR = new THREE.WebGLRenderer({ canvas: streetCanvas, antialias: true });
+streetR.setPixelRatio(Math.min(2, devicePixelRatio));
+const persp = new THREE.PerspectiveCamera(78, 9 / 16, 0.05, 100);
+const msaaRT = () => new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType, samples: 4 });
+const composer = new EffectComposer(streetR, msaaRT());
+composer.addPass(new RenderPass(scene, persp));
+const bloomStreet = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.6, 0.35, 0.85); composer.addPass(bloomStreet);
+const bokeh = new BokehPass(scene, persp, { focus: S.focus, aperture: S.blur, maxblur: 0.012 });
+const bokehRender = bokeh.render.bind(bokeh);
+bokeh.render = (...a) => { const vis = noDepth.map(o => o.visible); noDepth.forEach(o => o.visible = false); bokehRender(...a); noDepth.forEach((o, i) => o.visible = vis[i]); };
+composer.addPass(bokeh);
+const fisheye = makeFisheye(S.fisheye, 9 / 16);
+composer.addPass(fisheye);
+composer.addPass(new OutputPass());
+const STREET_CAMS = {                    // three spots for the street camera
+  corner: { pos: [-3.1, 2.4, 3.6], look: [1.2, 0, -1.5], fov: 78 },
+  high:   { pos: [-2.4, 9.5, 4.8], look: [0.6, 0, -0.6], fov: 62 },
+  far:    { pos: [1.7, 3.1, 12.5], look: [-0.3, 0.5, -1.5], fov: 46 },
+};
+let camKey = 'corner';
+const camNow = { pos: new V3(...STREET_CAMS.corner.pos), look: new V3(...STREET_CAMS.corner.look), fov: 78 };
+const fisheyeWarp = warpFor(fisheye, () => S.fisheye);
+const mainWarp = warpFor(mainFish, () => S.mainFishK);
+
+// ---------- Sizing: world view locked to 16:9, street cam to 9:16, both as large as the window allows ----------
+const mainEl = document.querySelector('main'), mainWrap = document.getElementById('mainWrap'), streetWrap = document.getElementById('streetWrap');
+const mainSize = new THREE.Vector2(), streetSize = new THREE.Vector2();
+const narrow = matchMedia('(max-width: 760px)');
+function layout() {
+  if (narrow.matches) { mainWrap.style.width = mainWrap.style.height = streetWrap.style.width = streetWrap.style.height = ''; return; }
+  const W = mainEl.clientWidth, H = mainEl.clientHeight, gap = 12;
+  const h = Math.max(120, Math.min(H, (W - gap) / (16 / 9 + 9 / 16)));
+  mainWrap.style.width = `${Math.floor(h * 16 / 9)}px`; mainWrap.style.height = `${Math.floor(h)}px`;
+  streetWrap.style.width = `${Math.floor(h * 9 / 16)}px`; streetWrap.style.height = `${Math.floor(h)}px`;
+}
+function resize() {
+  const w = mainWrap.clientWidth, h = mainWrap.clientHeight; if (!w || !h) return;
+  mainR.setSize(w, h, false); mainComposer.setPixelRatio(mainR.getPixelRatio()); mainComposer.setSize(w, h); mainSize.set(w * mainR.getPixelRatio(), h * mainR.getPixelRatio());
+  const a = w / h, F = frustum * GROW.fit; ortho.left = -F * a / 2; ortho.right = F * a / 2; ortho.top = F / 2; ortho.bottom = -F / 2; ortho.updateProjectionMatrix();
+  const sw = streetWrap.clientWidth, sh = streetWrap.clientHeight;
+  if (sw && sh) { streetR.setSize(sw, sh, false); composer.setPixelRatio(streetR.getPixelRatio()); composer.setSize(sw, sh); streetSize.set(sw * streetR.getPixelRatio(), sh * streetR.getPixelRatio());
+    persp.aspect = sw / sh; persp.updateProjectionMatrix(); fisheye.uniforms.aspect.value = sw / sh; }
+  mainFish.uniforms.aspect.value = w / h;
+}
+new ResizeObserver(() => { layout(); resize(); }).observe(mainEl);
+new ResizeObserver(resize).observe(mainWrap); new ResizeObserver(resize).observe(streetWrap);
+
+// ---------- Presets ("versions") ----------
+function applyLight() {
+  hemi.intensity = nightOn ? S.moon : 2.2;
+  lampLights.forEach(l => l.intensity = S.lamps * 0.4); lampPools.forEach(m => m.material.opacity = 0.012 * S.lamps);
+  pointMats.forEach(m => m.size = m.userData.base * S.dots * Math.min(2, devicePixelRatio)); wireMats.forEach(m => m.opacity = m.userData.base * S.lattice);
+  bloomMain.strength = bloomStreet.strength = S.bloom; windows.visible = S.windowsLit > 0;
+  for (const m of nightTinted) { m.color.set(m.userData.day); if (nightOn) m.color.multiplyScalar(m.userData.day === '#ffffff' ? 0.72 : 0.5); }
+}
+function applyPreset(key) {
+  P = PRESETS[key];
+  mainR.setClearColor(P.bg); streetR.setClearColor(P.bg); scene.background = new THREE.Color(P.bg);
+  groundMat.color.set(P.ground); streetMat.color.set(P.street); bMat.color.set(P.building); bEdgeMat.color.set(P.buildingEdge);
+  cloudGroup.visible = P.points; cGround.set(P.ground); gapMat.color.set(P.ground); cOutline.set(P.outline);
+  S.trailStyle = (() => { try { const v = localStorage.getItem('lb-trail'); if (v === 'off') return 'off'; } catch (e) {} return S.cast === 'heads' ? 'dots' : P.trails; })(); if (typeof styleCtl !== 'undefined') styleCtl.updateDisplay(); { const ts = document.getElementById('trailSel'); if (ts) ts.value = S.trailStyle; }
+  nightOn = !!P.night; nightGroup.visible = nightOn; orbLine.set(key === 'hero' ? '#3a3a3a' : '#ffffff'); if (typeof fatMats !== 'undefined') fatMats.forEach(m => { if (!m.userData.keepColor) m.color.copy(orbLine); });
+  hillMat.color.set(nightOn ? '#0e0c10' : key === 'hero' ? '#ffffff' : '#d4d3d0'); hillEdgeMat.color.set(nightOn ? '#8a6a3a' : key === 'hero' ? '#d9d9d9' : '#9b9a98');
+  pathDotMat.color.set(nightOn ? '#2a2420' : key === 'hero' ? '#bdbdbd' : '#8d8c89');
+  ground.material = nightOn ? groundLitMat : groundMat; streetMeshes.forEach(m => m.material = nightOn ? streetLitMat : streetMat);
+  hemi.color.set(nightOn ? '#7d8cff' : '#ffffff'); hemi.groundColor.set(nightOn ? '#120f1c' : '#888888'); applyLight();
+  sun.visible = !nightOn; bloomMain.enabled = bloomStreet.enabled = nightOn;
+  document.getElementById('verLabel').textContent = P.label;
+  try { applyWorld(false); } catch (e) {}
+  try { localStorage.setItem('lb-preset', key); } catch (e) {}
+}
+
+// ---------- Controls ----------
+const gui = new GUI({ container: document.getElementById('guiHost'), title: 'Tweak' });
+const fM = gui.addFolder('Rhythm');
+fM.add(S, 'tempo', 0.2, 3, 0.05).name('world tempo');
+fM.add(S, 'cubeBurst', 1, 10, 1).name('cube rolls per burst');
+fM.add(S, 'cubePause', 0, 3, 0.05).name('cube pause (s)');
+fM.add(S, 'coneHopHeight', 0.1, 1.5, 0.05).name('cone hop height');
+fM.add(S, 'coneTurn', 0, 180, 5).name('cone turn range °');
+fM.add(S, 'sphereSpeed', 0.2, 3, 0.05).name('sphere speed');
+fM.add(S, 'contribute', 0, 10, 0.1).name('how often they contribute');
+const fT = gui.addFolder('Trails + phrases');
+const styleCtl = fT.add(S, 'trailStyle', { 'Lines + nodes': 'lines', 'Dots (murmur)': 'dots', 'Stamps (hero frame)': 'stamps', 'Off (no trails)': 'off' }).name('trail style').onChange(v => { trailSel.value = v; });
+const trailSel = document.getElementById('trailSel');
+const castSel = document.getElementById('castSel'); castSel.value = S.cast;
+const LEGENDS = {
+  blocks: document.getElementById('legend').innerHTML,
+  orbits: '<span><i style="background:#459af6"></i>Blue weaves</span><span><i style="background:#ea3383"></i>Pink glides · spins · darts</span><span><i style="background:#54b642"></i>Green lazy arcs</span>',
+  heads: '<span><i style="background:#c5ee70;box-shadow:inset 0 -3px #55c06a"></i>Green</span><span><i style="background:#f6bb80;box-shadow:inset 0 -3px #d0814f"></i>Orange</span><span><i style="background:#7aeeb8;box-shadow:inset 0 -3px #5fc8b3"></i>Mint</span><span><i style="background:#a8c1d6;box-shadow:inset 0 -3px #3a4a75"></i>Blue</span><span><i style="background:#ee6878;box-shadow:inset 0 -3px #bb5f68"></i>Red</span><span>· rolling wire balls</span>',
+};
+const setLegend = () => { document.getElementById('legend').innerHTML = LEGENDS[S.cast] || LEGENDS.blocks; }; setLegend();
+castSel.onchange = () => { S.cast = castSel.value; setLegend(); if (S.cast === 'heads') { S.trailStyle = 'dots'; trailSel.value = 'dots'; styleCtl.updateDisplay(); } try { localStorage.setItem('lb-cast08', S.cast); } catch (e) {} trails = []; populate(); };
+trailSel.onchange = () => { S.trailStyle = trailSel.value; styleCtl.updateDisplay(); try { localStorage.setItem('lb-trail', S.trailStyle); } catch (e) {} };
+fT.add(S, 'trailLife', 1, 20, 0.5).name('trail fade after (s)');
+fT.add(S, 'trailWidth', 0.5, 6, 0.1).name('trail width');
+fT.add(S, 'phraseRate', 0, 4, 0.1).name('phrase frequency');
+fT.add(S, 'phraseHold', 0.8, 6, 0.1).name('phrase stays (s)');
+function applyHill() { hillGroup.visible = massGroup.visible = S.hill; hillGroup.userData.dots.visible = S.hill; NAV.free = null; }
+applyHill();
+const fP = gui.addFolder('Population');
+fP.add(S, 'rollShare', 0, 1, 0.05).name('boxes that roll (vs glide)').onChange(() => populate());
+fP.add(S, 'hill').name('hill + pile (experimental)').onChange(() => { applyHill(); populate(); });
+function applyWorld(repop = true) {
+  const roads = roadsWorld(); cityGroup.visible = !roads; ground.scale.setScalar(roads ? 10 : 1); streetMeshes.forEach(m => m.visible = !roads);
+  for (const [k, n] of Object.entries(ROADS.nets)) n.group.visible = S.world === k; if (roads) ROADS.routes = ROADS.nets[S.world].routes;
+  nightGroup.visible = nightOn && !roads; NAV.free = null;
+  const bg = nightOn ? P.bg : roads ? (P === PRESETS.hero ? '#ffffff' : S.world === 'subway' ? '#f7f6f1' : '#f5f5f3') : P.bg;
+  mainR.setClearColor(bg); streetR.setClearColor(bg); scene.background = new THREE.Color(bg); groundMat.color.set(roads && !nightOn ? bg : P.ground);
+  for (const n of Object.values(ROADS.nets)) n.group.userData.gridMat.color.set(nightOn ? '#2a2a30' : '#d6d6d4');
+  if (roads && !nightOn) { orbLine.set('#a9a9a9'); fatMats.forEach(m => { if (!m.userData.keepColor) m.color.copy(orbLine); }); }
+  document.getElementById('worldSel').value = S.world;
+  if (repop) { trails = []; populate(); }
+}
+document.getElementById('worldSel').onchange = (e) => { S.world = e.target.value; try { localStorage.setItem('lb-world11', S.world); } catch (er) {} applyWorld(); };
+const fR = gui.addFolder('Roads world');
+fR.add(S, 'roadSpeed', 0.2, 3, 0.05).name('ride speed');
+fR.add(S, 'switchChance', 0, 1, 0.05).name('switch at a junction');
+fR.add(S, 'grow').name('map keeps growing');
+fR.add(S, 'growEvery', 1, 20, 0.5).name('grow every (s)');
+fR.add(S, 'growMax', 14, 120, 1).name('max stops');
+fR.add(S, 'headsMax', 5, 80, 1).name('max heads');
+fR.add(S, 'growCam').name('camera eases out');
+fR.add({ regrow: () => { const n = ROADS.nets[S.world]; if (!n) return; if (GROW.anim) { n.group.remove(GROW.anim.line, GROW.anim.pin); GROW.anim = null; } resetNet(n); n.group.visible = true; applyWorld(); } }, 'regrow').name('start the map over');
+const fH = gui.addFolder('Heads (3D, in wire balls)');
+fH.add(S, 'heads', 1, 30, 1).name('how many').onFinishChange(() => { if (S.cast === 'heads') populate(); });
+fH.add(S, 'headSize', 0.6, 1.8, 0.05).name('ball size').onFinishChange(() => { if (S.cast === 'heads') populate(); });
+fH.add(S, 'headFaceCam', 0, 1, 0.05).name('face toward viewer');
+fH.add(S, 'headWobble', 0, 2, 0.05).name('wobble + nod');
+fH.add(S, 'ballLines', 0, 3, 1).name('middle lines on the ball');
+fH.add(S, 'floatOften', 0, 3, 0.05).name('how often they float');
+fH.add(S, 'arrowShare', 0, 1, 0.05).name('share with an arrow').onFinishChange(() => { if (S.cast === 'heads') populate(); });
+const lookCtl = fH.add(S, 'headLook', { 'Soft 3D (plastic)': 'soft', 'Cel shaded': 'cel' }).name('head look').onChange(() => setLook(S.headLook));
+function setLook(v) { S.headLook = v; try { localStorage.setItem('lb-look', v); } catch (e) {} lookCtl.updateDisplay();
+  document.getElementById('btnSoft').setAttribute('aria-pressed', v === 'soft'); document.getElementById('btnCel').setAttribute('aria-pressed', v === 'cel');
+  agents.forEach(a => a.applyLook && a.applyLook()); }
+document.getElementById('btnSoft').onclick = () => setLook('soft'); document.getElementById('btnCel').onclick = () => setLook('cel'); setLook(S.headLook);
+fP.add(S, 'cubes', 0, 30, 1).onFinishChange(populate);
+fP.add(S, 'cones', 0, 30, 1).onFinishChange(populate);
+fP.add(S, 'spheres', 0, 30, 1).onFinishChange(populate);
+const fC = gui.addFolder('Street cam');
+const focusCtl = fC.add(S, 'focus', 1, 15, 0.1).name('focus distance').onChange(v => bokeh.uniforms.focus.value = v);
+fC.add(S, 'blur', 0, 0.03, 0.0005).name('depth blur').onChange(v => bokeh.uniforms.aperture.value = v);
+fC.add(S, 'fisheye', 0, 1.2, 0.01).name('fisheye').onChange(v => fisheye.uniforms.k.value = v);
+const fW = gui.addFolder('World fisheye (16:9)');
+const applyMainFish = () => { mainFish.enabled = S.mainFish; mainFish.uniforms.k.value = S.mainFishK; mainFish.uniforms.vig.value = S.mainVig; mainFish.uniforms.ca.value = S.mainFringe; btnFish.setAttribute('aria-pressed', S.mainFish); };
+const fishOnCtl = fW.add(S, 'mainFish').name('on').onChange(applyMainFish);
+fW.add(S, 'mainFishK', 0, 1.2, 0.01).name('bend').onChange(applyMainFish);
+fW.add(S, 'mainVig', 0, 1, 0.01).name('vignette').onChange(applyMainFish);
+fW.add(S, 'mainFringe', 0, 0.01, 0.0005).name('color fringe').onChange(applyMainFish);
+const btnFish = document.getElementById('btnFish');
+btnFish.onclick = () => { S.mainFish = !S.mainFish; fishOnCtl.updateDisplay(); applyMainFish(); };
+applyMainFish();
+fC.add(S, 'camSway', 0, 3, 0.1).name('camera sway');
+const fN = gui.addFolder('Night light');
+fN.add(S, 'moon', 0, 1.5, 0.05).name('moonlight').onChange(applyLight);
+fN.add(S, 'lamps', 0, 40, 1).name('block + curb glow').onChange(applyLight);
+fN.add(S, 'dots', 0.3, 3, 0.05).name('dot size').onChange(applyLight);
+fN.add(S, 'lattice', 0, 3, 0.05).name('wire lattice').onChange(applyLight);
+fN.add(S, 'charGlow', 0, 1.5, 0.05).name('character glow');
+fN.add(S, 'bloom', 0, 2.5, 0.05).name('bloom').onChange(applyLight);
+fN.close();
+const copyBtn = gui.add({ copy() {
+  const txt = JSON.stringify({ version: P.label, ...S }, null, 2);
+  const done = (msg) => { copyBtn.name(msg); setTimeout(() => copyBtn.name('Copy these settings'), 1800); };
+  try { navigator.clipboard.writeText(txt).then(() => done('Copied'), () => { console.log(txt); done('Copy blocked, see console'); }); }
+  catch (e) { console.log(txt); done('Copy blocked, see console'); }
+} }, 'copy').name('Copy these settings');
+fP.close(); fC.close();
+
+const btnIso = document.getElementById('btnIso'), btnTop = document.getElementById('btnTop'), btnPause = document.getElementById('btnPause');
+function setView(v) { viewGoal = v === 'top' ? TOP : ISO; btnIso.setAttribute('aria-pressed', v !== 'top'); btnTop.setAttribute('aria-pressed', v === 'top');
+  document.getElementById('mainTag').textContent = v === 'top' ? 'World · top-down · 16:9' : 'World · isometric · 16:9'; }
+btnIso.onclick = () => setView('iso'); btnTop.onclick = () => setView('top');
+let paused = false;
+btnPause.onclick = () => { paused = !paused; btnPause.setAttribute('aria-pressed', paused); btnPause.textContent = paused ? 'Play' : 'Pause'; };
+document.getElementById('btnClear').onclick = () => { trails = []; updateStamps(Infinity); agents.forEach(a => a.ribbon && a.ribbon.clear()); agents.forEach(a => { a.cursor = null; a.seg = null; }); };
+const btnPhrases = document.getElementById('btnPhrases');
+btnPhrases.onclick = () => { phrasesOn = !phrasesOn; btnPhrases.setAttribute('aria-pressed', phrasesOn); };
+const showBtn = document.getElementById('showBtn');
+function setBare(on) { document.body.classList.toggle('bare', on); showBtn.hidden = !on; layout(); resize(); }
+document.getElementById('btnHide').onclick = () => setBare(true);
+showBtn.onclick = () => setBare(false);
+addEventListener('keydown', (e) => {
+  if (e.target.closest && e.target.closest('input, select, textarea')) return;
+  if (e.key === 'h' || e.key === 'H') setBare(!document.body.classList.contains('bare'));
+});
+const camBtns = { corner: document.getElementById('camCorner'), high: document.getElementById('camHigh'), far: document.getElementById('camFar') };
+function setCam(key) {
+  camKey = key; Object.entries(camBtns).forEach(([k, b]) => b.setAttribute('aria-pressed', k === key));
+  const c = STREET_CAMS[key]; S.focus = +new V3(...c.pos).distanceTo(new V3(...c.look)).toFixed(1); bokeh.uniforms.focus.value = S.focus; focusCtl.updateDisplay();
+  document.querySelector('.cctv .tl').innerHTML = `<span class="rec">● REC</span>&nbsp; CAM 0${['corner', 'high', 'far'].indexOf(key) + 3} · ${key.toUpperCase()}`;
+}
+Object.entries(camBtns).forEach(([k, b]) => b.onclick = () => setCam(k));
+addEventListener('keydown', (e) => { if (e.target.closest && e.target.closest('input, select, textarea')) return; const k = { 1: 'corner', 2: 'high', 3: 'far' }[e.key]; if (k) setCam(k); });
+const presetSel = document.getElementById('preset');
+presetSel.onchange = () => applyPreset(presetSel.value);
+let startPreset = 'sketch'; try { startPreset = localStorage.getItem('lb-preset') || 'sketch'; } catch (e) {}
+if (!PRESETS[startPreset]) startPreset = 'sketch';
+presetSel.value = startPreset; applyPreset(startPreset);
+
+// ---------- Loop ----------
+populate(); layout(); resize();
+const clock = new THREE.Clock(), clockEl = document.getElementById('clock');
+let simTime = 0;
+if (matchMedia('(prefers-reduced-motion: reduce)').matches) S.camSway = 0;
+{ const was = phrasesOn; phrasesOn = false; for (let i = 0; i < 240; i++) { simTime += 1 / 60; for (const a of agents) a.update(1 / 60, simTime); } phrasesOn = was; }
+agents.forEach(a => a.quietUntil = simTime + rand(0.5, 6));
+const CAMS = [[ortho, mainWrap, (x, y) => S.mainFish ? mainWarp(x, y) : [x, y]], [persp, streetWrap, fisheyeWarp]];
+// Hover a character to hear what it's doing: its phrase shows for as long as the pointer stays on it
+let hover = null;
+function pickAgent(e, ci) {
+  const [cam, wrap, warp] = CAMS[ci], r = wrap.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top;
+  let best = null, bd = 42;
+  for (const a of agents) for (const p of [a.head.position, a.body.position]) {
+    proj.copy(p).project(cam); if (proj.z > 1) continue;
+    if (warp) { const q = warp(proj.x, proj.y); proj.x = q[0]; proj.y = q[1]; }
+    const d = Math.hypot((proj.x * 0.5 + 0.5) * r.width - mx, (-proj.y * 0.5 + 0.5) * r.height - my);
+    if (d < bd) { bd = d; best = a; }
+  }
+  return best;
+}
+[mainWrap, streetWrap].forEach((wrap, ci) => {
+  wrap.addEventListener('pointermove', (e) => { hover = pickAgent(e, ci); wrap.style.cursor = hover ? 'pointer' : ''; });
+  wrap.addEventListener('pointerleave', () => { hover = null; wrap.style.cursor = ''; });
+});
+function keepHover(now) {
+  if (!hover || !agents.includes(hover)) return;
+  const ph = phrases.find(p => p.agent === hover);
+  if (ph) ph.born = Math.max(ph.born, now - S.phraseHold + 0.4); else showPhrase(hover, now);
+}
+function frame() {
+  const dt = Math.min(0.05, clock.getDelta());
+  if (!paused) { simTime += dt; for (const a of agents) a.update(dt, simTime); updateHill(dt, simTime); growTick(dt); }
+  updateTrails(simTime); updateStamps(simTime);
+  for (const a of agents) if (a.ribbon) a.ribbon.update(simTime, S.trailLife * 0.3);
+  const k = 1 - Math.exp(-dt * 4); viewNow.el += (viewGoal.el - viewNow.el) * k; viewNow.az += (viewGoal.az - viewNow.az) * k; placeOrtho();
+  for (const a of agents) { a.glow.visible = nightOn; a.shadow.visible = !nightOn;
+    if (nightOn) { a.glow.position.set(a.shadow.position.x, 0.009, a.shadow.position.z); a.glow.material.opacity = S.charGlow * 0.9 / (1 + Math.max(0, a.head.position.y - 1.2)); } }
+  trailMat.resolution.copy(mainSize); trailMat.linewidth = S.trailWidth; fatMats.forEach(m => { m.resolution.copy(mainSize); m.linewidth = m.userData.w; }); mainComposer.render();
+  const t = performance.now() / 1000, sway = Math.sin(t * 0.25) * 0.35 * S.camSway;
+  const goal = STREET_CAMS[camKey], kc = 1 - Math.exp(-dt * 3);
+  camNow.pos.lerp(tmpV.set(...goal.pos), kc); camNow.look.lerp(tmpV.set(...goal.look), kc); camNow.fov += (goal.fov - camNow.fov) * kc;
+  if (Math.abs(persp.fov - camNow.fov) > 0.01) { persp.fov = camNow.fov; persp.updateProjectionMatrix(); }
+  persp.position.copy(camNow.pos); persp.lookAt(camNow.look.x + sway * 3, camNow.look.y, camNow.look.z + sway); persp.updateMatrixWorld();
+  trailMat.resolution.copy(streetSize); trailMat.linewidth = S.trailWidth * 1.4; fatMats.forEach(m => { m.resolution.copy(streetSize); m.linewidth = m.worldUnits ? m.userData.w : m.userData.w * 1.4; }); composer.render();
+  keepHover(simTime); placePhrases(simTime, CAMS);
+  const sec = Math.floor(simTime) + 8 * 3600 + 41 * 60; clockEl.textContent = [sec / 3600, (sec / 60) % 60, sec % 60].map(n => String(Math.floor(n)).padStart(2, '0')).join(':');
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>

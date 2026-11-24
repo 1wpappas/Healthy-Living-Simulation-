@@ -1,0 +1,16 @@
+{
+  "name": "healthier-scroll-pilot",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build"
+  },
+  "dependencies": {
+    "next": "^15.5.29",
+    "opentype.js": "^1.3.4",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "three": "^0.170.0"
+  }
+}
