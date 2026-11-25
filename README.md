@@ -4,11 +4,12 @@ A living, breathing map of little characters doing research. Each character is a
 
 The project started from [murmur.living](https://murmur.living): a city block where every shape follows its own movement rules and leaves a trail. The theme is health and cancer research. Each character is an "agent" doing work ("PULLING 3 NEW TRIALS"), and the map shows that work as motion.
 
-The repo holds two prototypes:
+The repo holds two prototypes and a set of 3D characters:
 
 | Folder | What it is | Tech |
 | --- | --- | --- |
 | [`playground/`](playground/) | **The Living Block playground.** One HTML file with every world, cast, trail and camera as a switchable option. This is the main sandbox. | Plain HTML + three.js r160 (from a CDN) + lil-gui |
+| [`assets/3d/`](assets/3d/) | **Cone guys:** the five characters as 3D `.glb` models, plus a small viewer. | glTF 2.0 |
 | [`scroll-pilot/`](scroll-pilot/) | **The scroll pilot.** A five-step scroll story: the hero head, then letter-shaped paths, then an aerial view, then the type fills in. | Next.js 15, React 19, three.js r170, opentype.js |
 
 ![Subway world, after a few minutes of growth](docs/shots/v011-subway-grown.png)
@@ -201,6 +202,39 @@ A single scroll-snapped page with five steps, each about one screen tall:
 | `relativize.py` | Turns `out/` into a copy that runs from any folder (used for the Claude preview link) |
 
 **Fonts:** KMR Melange Grotesk is a licensed typeface, so it is not committed. Copy the two `.otf` files into `scroll-pilot/public/fonts/` as described in [that folder's README](scroll-pilot/public/fonts/README.md).
+
+---
+
+## Cone guys (3D models)
+
+![The five cone guys](docs/shots/cone-guys-3d.png)
+
+Five ready-made 3D characters live in [`assets/3d/`](assets/3d/) as `.glb` files. Each is a soft head sitting on a cone that stands on a rounded bowl, so it can rock like a weeble. There is one head shape per colour:
+
+| File | Head | Light (head, cone) | Dark (eyes, bowl) |
+| --- | --- | --- | --- |
+| `cone-hexagon-green.glb` | Hexagon | `#cefc6f` | `#36e057` |
+| `cone-star-orange.glb` | Star | `#fcb66f` | `#e07836` |
+| `cone-triangle-mint.glb` | Triangle | `#6ffcbb` | `#36e0a2` |
+| `cone-square-blue.glb` | Square | `#6fbcfc` | `#3676e0` |
+| `cone-circle-red.glb` | Circle | `#fc6f80` | `#e0364e` |
+| `cone-guys-all.glb` | All five in a row | | |
+
+**Scale and orientation.** One unit = the bowl's diameter (the bowl radius is 0.5). The ground is at `y = 0`, the figures stand about 2.1 units tall, and they face `+z`.
+
+**Mesh names.** Each figure is a group named `cone-<shape>-<colour>` with four parts: `bowl`, `cone`, `head` (made of `head-shell` plus two `eye` meshes). Materials are named `<colour>-light` and `<colour>-dark`, so you can recolour them in Blender, Spline or code.
+
+**Getting the cel look.** glTF only stores base colours (PBR standard materials). For the flat cel style, swap each material for a toon material in the same colour. [`assets/3d/viewer.html`](assets/3d/viewer.html) shows how. Serve the folder (`npx serve assets/3d`) and open the viewer, then use the Soft / Cel buttons and drag to orbit.
+
+```js
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+new GLTFLoader().load('cone-star-orange.glb', (gltf) => {
+  gltf.scene.traverse((m) => { if (m.isMesh) m.material = new THREE.MeshToonMaterial({ color: m.material.color }); });
+  scene.add(gltf.scene);
+});
+```
+
+**Rebuilding them.** [`tools/export-cone-guys-glb.cjs`](tools/export-cone-guys-glb.cjs) regenerates every `.glb` from the head geometry in the playground and the palette in `tools/cone-guy-palette.json`. It needs Node, Playwright and a local copy of `three@0.160.0` in `tools/node_modules`.
 
 ---
 
