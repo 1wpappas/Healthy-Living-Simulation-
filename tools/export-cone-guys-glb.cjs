@@ -8,12 +8,12 @@ const PAL = JSON.parse(fs.readFileSync(path.join(__dirname, 'cone-guy-palette.js
   await p.route(/fonts\.(googleapis|gstatic)/, r => r.fulfill({ body: '', contentType: 'text/css' }));
   let html = fs.readFileSync(path.join(__dirname, '../playground/index.html'),'utf8')
     .replace('<script type="module">', '<script type="module">\nimport { GLTFExporter as __GLTFX } from \'three/addons/exporters/GLTFExporter.js\';')
-    .replace('window.__lb = {', 'window.__ex = { Orb, HEAD_CHARS, S, GLTFExporter: __GLTFX }; window.__lb = {');
+    .replace('window.__lb = {', 'window.__ex = { softHead, Y_EYE_X, Y_EYES, GLTFExporter: __GLTFX }; window.__lb = {');
   await p.setContent('<!doctype html><html><head><meta charset="utf-8"></head><body>'+html+'</body></html>');
   await p.waitForTimeout(2500); await p.click('#btnPause');
   const FIGS = [['hexagon','green'],['star','orange'],['triangle','mint'],['square','blue'],['circle','red']];
   const out = await p.evaluate(async ({ FIGS, PAL }) => {
-    const { THREE } = __lb, { Orb, HEAD_CHARS, S, GLTFExporter } = __ex; S.arrowShare = 0;
+    const { THREE } = __lb, { softHead, Y_EYE_X, Y_EYES, GLTFExporter } = __ex;
     const exp = new GLTFExporter(), res = {}, all = new THREE.Group(); all.name = 'cone-guys';
     const toGlb = (obj) => new Promise((ok, bad) => exp.parse(obj, (buf) => { const u = new Uint8Array(buf); let t = ''; for (let i = 0; i < u.length; i += 0x8000) t += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); ok(btoa(t)); }, bad, { binary: true }));
     // body: a cone standing on a half-sphere bowl (proportions from the 2D cone figures), ground at y = 0
@@ -29,18 +29,15 @@ const PAL = JSON.parse(fs.readFileSync(path.join(__dirname, 'cone-guy-palette.js
       const cone = new THREE.Mesh(new THREE.LatheGeometry(coneProfile, 64), mLight); cone.name = 'cone';
       const bowl = new THREE.Mesh(new THREE.LatheGeometry(bowlProfile, 64), mDark); bowl.name = 'bowl';
       fig.add(bowl, cone);
-      Orb.prototype.headKind = shape; const a = new Orb(HEAD_CHARS[col], 'bubble', true);
-      const src = a.mesh; const head = new THREE.Group(); head.name = 'head';
-      src.traverse((m) => { if (!m.isMesh || m === a.hull || m.material?.side === THREE.BackSide) return;
-        const isEye = a.eyes.includes(m), g = m.geometry.clone(); m.updateMatrix();
-        g.applyMatrix4(new THREE.Matrix4().compose(m.position, m.quaternion, m.scale));
-        const mm = new THREE.Mesh(g, isEye ? mDark : mLight); mm.name = isEye ? 'eye' : 'head-shell'; head.add(mm); });
-      head.scale.copy(src.scale);
+      // head: Will's soft head + eyes, built straight from the shared softHead() geometry
+      const c = softHead(shape), head = new THREE.Group(); head.name = 'head';
+      const shell = new THREE.Mesh(c.geo, mLight); shell.name = 'head-shell'; head.add(shell);
+      for (const sd of [-1, 1]) { const ex = sd * Y_EYE_X, ey = Y_EYES[shape], e = new THREE.Mesh(c.eyeGeo(ex, ey), mDark); e.position.set(ex, ey, c.eyeZ(ex, ey)); e.name = 'eye'; head.add(e); }
       // size + seat it like the 2D figure: head about as wide as the bowl, bottom sinking onto the neck
       const box = new THREE.Box3().setFromObject(head), size = box.getSize(new THREE.Vector3()), k = 1.09 / Math.max(size.x, size.y);
       head.scale.multiplyScalar(k); const box2 = new THREE.Box3().setFromObject(head), c2 = box2.getCenter(new THREE.Vector3());
       head.position.set(-c2.x, R + 0.62 - box2.min.y, -c2.z);
-      fig.add(head); a.dispose();
+      fig.add(head);
       res[fig.name] = await toGlb(fig);
       const copy = fig.clone(); copy.position.x = (i - 2) * 1.5; all.add(copy); i++;
     }

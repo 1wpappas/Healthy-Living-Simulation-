@@ -1,23 +1,30 @@
 # Healthy Living Simulation
 
-A living, breathing map of little characters doing research. The main characters are the **cone guys**: soft cel-shaded heads on a cone that rocks on a rounded bowl. They plan routes across a grid and lay down coloured ribbons as they go. They can also ride colour-coded subway lines across a city that keeps growing.
+A living, breathing map of little characters doing research. The main characters are the **cone guys**: soft cel-shaded heads on a cone that rocks on a rounded bowl. They plan routes across a light grid — or roam free on the plain floor — and lay down coloured ribbons as they go.
 
 The project started from [murmur.living](https://murmur.living): a city block where every shape follows its own movement rules and leaves a trail. The theme is health and cancer research. Each character is an "agent" doing work ("PULLING 3 NEW TRIALS"), and the map shows that work as motion.
 
-The repo holds three prototypes and a set of 3D characters:
+The repo holds the prototypes, an archive and a set of 3D characters. [`index.html`](index.html) at the root is a browseable index of all of them:
 
 | Folder | What it is | Tech |
 | --- | --- | --- |
-| [`playground/`](playground/) | **The Living Block playground.** One HTML file with every world, cast, trail and camera as a switchable option. This is the main sandbox. | Plain HTML + three.js r160 (from a CDN) + lil-gui |
+| [`playground/`](playground/) | **The Living Block playground.** One HTML file with both flat grounds, every trail and camera as a switchable option; the cast is the cone guys. This is the main sandbox. | Plain HTML + three.js r160 (from a CDN) + lil-gui |
 | [`hero-sim/`](hero-sim/) | **The Healthier hero sim.** The website hero: cone guys make paths around the headline, with a frosted nav and a dial kit for every look setting. | Plain HTML, 2D canvas + three.js r160 for the heads, lil-gui |
 | [`assets/3d/`](assets/3d/) | **Cone guys:** the five characters as 3D `.glb` models, plus a small viewer. | glTF 2.0 |
 | [`scroll-pilot/`](scroll-pilot/) | **The scroll pilot.** A five-step scroll story: the hero head, then letter-shaped paths, then an aerial view, then the type fills in. | Next.js 15, React 19, three.js r170, opentype.js |
+| [`archive/v011/`](archive/v011/) | **Playground v0.11, frozen.** A verbatim copy of `playground/index.html` as committed in `858593e`, kept for comparison. | Same as the playground |
 
 ![Cone guys laying ribbon paths on flat ground](docs/shots/v012-cone-guys-paths.png)
 
 ---
 
 ## Quick start
+
+Start at the root [`index.html`](index.html): a browseable index of every study with screenshot plates and direct links. Serve the repo root so the ES-module pages and the generated previews work:
+
+```bash
+python3 -m http.server 8040        # then open http://localhost:8040/
+```
 
 ### Playground (no install)
 
@@ -29,18 +36,28 @@ open playground/index.html          # macOS
 npx serve playground                # then visit the printed URL
 ```
 
-It loads three.js and lil-gui from jsDelivr, so the first load needs an internet connection.
+It loads three.js and lil-gui from jsDelivr, so the first load needs an internet connection. Append `?preset=sketch`, `?preset=night` or `?preset=hero` to open a specific version (v0.12, v0.12b, v0.12c), and `?world=flat-grid` or `?world=flat` to pick the ground (the light grid is the default).
+
+### Playground archive (historical source)
+
+[`archive/v011/index.html`](archive/v011/index.html) is the playground frozen at v0.11 — a verbatim copy of `playground/index.html` as committed in `858593e` ("Add Living Block playground and scroll pilot with README"), before the cone-guys cast and flat ground world existed. The only differences are a provenance comment and the same `?preset=` deep links; the index links each archived version directly.
 
 ### Scroll pilot
 
+The live preview is a generated static export in `scroll-pilot/preview/` — git-ignored, so a fresh checkout prepares it once:
+
 ```bash
 cd scroll-pilot
-# 1. Copy the two KMR Melange Grotesk .otf files into public/fonts/ (see public/fonts/README.md)
-npm install
-npm run dev                         # http://localhost:3000
+# 1. Copy the two licensed KMR Melange Grotesk .otf files into public/fonts/
+#    (see public/fonts/README.md — the font files are not committed)
+npm ci
+npm run build                            # writes out/
+python3 relativize.py out preview        # rewrites out/ -> preview/, runnable from any folder
+cd ..
+python3 -m http.server 8040              # open http://localhost:8040/scroll-pilot/preview/
 ```
 
-`npm run build` writes a static site to `scroll-pilot/out/`.
+To hack on it instead, `cd scroll-pilot && npm run dev` serves the app at http://localhost:3000. [`scroll-pilot/index.html`](scroll-pilot/index.html) is a static storyboard + setup page that stays available even before the preview is built, and links to the live export once it exists.
 
 ### Hero sim
 
@@ -48,7 +65,13 @@ npm run dev                         # http://localhost:3000
 npx serve hero-sim                  # then visit the printed URL
 ```
 
-For the real type, copy the three ABC Diatype `.otf` files into `hero-sim/fonts/` (see the README there). Press **D** to show or hide the dial kit.
+For the real type, copy the three ABC Diatype `.otf` files into `hero-sim/fonts/` (see the README there) — they are optional; without them the page falls back to system fonts, and the dial kit can also pick Google fonts. Press **D** to show or hide the dial kit.
+
+### What's committed vs. fetched
+
+- **Committed:** all HTML/JS/CSS source, the `.glb` models, screenshots, and the generated `preview/` is *not* committed (git-ignored, like `out/`).
+- **Local font files (licensed, not committed):** the two KMR `.otf` files for the scroll pilot (required — they build the letter paths) and the three ABC Diatype `.otf` files for the hero sim (optional — system-font fallback).
+- **CDN:** playground, hero sim and the cast viewer pull three.js/lil-gui from jsDelivr at runtime; the scroll pilot bundles its own three.js into the export.
 
 ---
 
@@ -56,82 +79,46 @@ For the real type, copy the three ABC Diatype `.otf` files into `hero-sim/fonts/
 
 ### Layout
 
-- **World view (16:9, left):** an orthographic camera that eases between **Isometric** and **Top-down**. Scroll the mouse wheel to zoom. **Fisheye** bends the frame like a wide lens, with a vignette and a hint of colour fringe.
-- **Street cam (9:16, right):** a "CCTV" perspective camera down at street level, with a fisheye warp and a running clock. It has three presets: **Corner**, **High** and **Far**.
-- **Header bar:** the main switches, described below.
-- **Tweak panel (lil-gui):** every tuning number. Press **H** or use **Hide controls** to get a clean frame for screenshots.
+- **Sidebar:** one panel on the left holds every control — screen picker, the active screen's view buttons, version/world selects, sim buttons, and the tweak panel below. Press **H** or use **Hide controls** to get a clean frame for screenshots.
 
-Your choices for world, cast, head look and trail are saved in `localStorage`, so the page reopens the way you left it.
+Your choices for screen, world, preset and trail are saved in `localStorage`, so the page reopens the way you left it.
 
-### Header controls
+### Sidebar controls
 
 | Control | Options | What it does |
 | --- | --- | --- |
-| View | Isometric · Top-down · Fisheye | Camera angle and lens of the world view |
+| Screen | World · 16:9 · Street cam · 9:16 | Which camera view is shown — only one renders at a time, and only its view buttons appear |
+| View (world screen) | Isometric · Top-down · Side · Fisheye | Camera angle and lens of the world view |
+| Street cam (street screen) | Corner · High · Far | Framing of the street camera |
 | Version | Sketch · Night · Hero | Colour and lighting presets (see below) |
-| World | **Subway map** · Roads · Block · Flat ground | What the ground is made of |
-| Heads | **Soft 3D** · Cel | Glossy plastic heads, or toon-shaded with an ink outline |
-| Cast | **Cone guys** · Heads · Blocks · Orbits | Which characters live in the world (Blocks and Orbits are earlier casts, saved for later) |
-| Trail | Lines + nodes · Dots · Stamps · **Ribbon** · Off | How the trails behind the characters are drawn |
-| Street cam | Corner · High · Far | Framing of the right-hand camera |
-| Pause / Clear trails / Auto phrases | | Freeze the sim, wipe trails, or let characters pop up random status phrases (hovering a character always shows what it's doing) |
+| World | Flat ground · **Light grid** · Flat ground · Plain | The floor: plain, or marked with a light grid the guys route on |
+| Pause / Clear trails / Auto phrases | | Freeze the sim, wipe trails, or toggle ambient status phrases (on by default, max two at a time; hovering a character still shows what it's doing) |
+| Tweak panel (lil-gui) | | Every tuning number — trail style, rhythm, cone guys, street cam, night light — plus a **Reset to defaults** button at the top |
 
 ### Versions (colour presets)
 
 - **Sketch:** light greys and the team's head colours. This is the default.
-- **Night (murmur-ish):** a dark city lit from within. The ground is a low-poly triangle mesh, building windows are an even square grid in the palette only, and the characters glow softly.
+- **Night (murmur-ish):** a dark scene lit from within. The ground is a faint low-poly triangle mesh on near-black, and the characters glow softly.
 - **Hero:** a clean white background with stamp-style trails, built for a hero image.
 
 ### Worlds
 
-#### Subway map (default)
-This world follows subway-map rules:
-- Lines only run at **0°, 45° or 90°**.
-- Every bend is a tight rounded corner. There are no loops and no free curves.
-- Lines that share a stretch run **side by side as one ribbon of colours**, then split off again.
-- Stations where lines meet are white discs with a black ring. Smaller stops along each line are black dots with a white rim.
+#### Flat ground · Light grid (default)
+One open floor marked with a faint neutral grid. Every cone guy plans a route across the grid before it moves — routes run through the **centres** of the grid squares, in the white space between the lines:
 
-#### Roads
-The same network drawn as flat, hand-jagged city roads over a patchwork of faint street grids, like a traffic map. Busy corridors read thick because several coloured routes bundle together.
+- Routes use long straight legs that are whole numbers of grid cells.
+- Every turn is an exact **90°** corner — no diagonals, no rounded fillets.
+- Routes never cross themselves, and guys keep a little space from each other's ribbons.
+- Spawns snap to grid cell centres inside the floor, and the visible grid lines stay on the cell edges and rebuild if you change the cell size.
+- Lines and dots are laid straight along the route, so they keep the same right angles; the ribbon band follows the path exactly.
 
-#### Block
-The original 3D city block of towers, sidewalks and streets. Characters wander freely between the buildings.
-
-#### Flat ground
-The Block world with every building and street taken away: one plain, open floor. This is the best stage for the cone guys' grid routes.
-
-#### The map keeps growing (Subway and Roads)
-The network is never a finished square. It is live state that keeps expanding:
-
-1. Every few seconds a stretch of line near the **outer edge** is chosen. Edges far from the centre are more likely, and lines with fewer stops get a fair turn.
-2. A **new stop** is placed beyond it. In the subway world it is pushed out along a 45° heading and snapped to the half-unit grid.
-3. A stroke in that line's colour **draws itself** out to the new stop and back in, and the station pops in.
-4. About half the time a **second nearby line bends over to share the new stop**, so the lines keep converging out at the frontier too.
-5. The street grid spreads tile by tile to cover the new ground.
-6. A **new head hops on** at the new stop and rides off.
-7. The camera **eases out and re-centres** so the whole network stays in frame.
-
-Once the map reaches its stop limit it keeps evolving anyway. Lines reroute through nearby stops they didn't serve before, or drop a detour.
-
-Each stretch of line is generated once and cached, so existing streets never change shape when the map grows. Riders are moved onto the rebuilt copy of their route at the nearest point, so nobody jumps.
-
-**Tweak → Roads world:**
-
-| Setting | Default | Meaning |
-| --- | --- | --- |
-| ride speed | 1 | How fast heads travel along lines |
-| switch at a junction | 0.45 | Chance a head changes line (and colour) at a shared station |
-| map keeps growing | on | Turn growth on or off |
-| grow every (s) | 4 | Seconds between growth steps |
-| max stops | 60 | Stop count after which the map only reroutes |
-| max heads | 40 | Cap on characters, including the ones that hop on |
-| camera eases out | on | Let the camera follow the growth |
-| start the map over | | Reset the network to its starting 14 stops |
+#### Flat ground · Plain
+The same floor with no grid marking. The cone guys keep the older movement options: the **grid routes** knob still works (with the hero sim's rounded corners and occasional diagonals), or turn it off and they roam freely, steering around the edges and each other.
 
 ### The cast
 
-#### Cone guys (default)
-The characters from the hero sim, in full 3D. Each guy is a cel-shaded head on a cone standing on a dark bowl, with one head shape per colour. They use the new default palette:
+#### Cone guys
+The characters from the hero sim, in full 3D — the only cast. Each guy is a cel-shaded head on a cone standing on a dark bowl, with one head shape per colour. They use the new default palette:
 
 | Colour | Head shape | Fill (head, cone, ribbon) | Stroke (eyes, bowl, outline) |
 | --- | --- | --- | --- |
@@ -144,72 +131,38 @@ The characters from the hero sim, in full 3D. Each guy is a cel-shaded head on a
 - **Weeble body:** the bowl rocks about its centre. The guy leans into speeding up, slowing down and turning, with a small wobble as it goes.
 - **Steady head:** the head stays fixed on the neck and only turns left and right, toward where the guy is heading and partly toward the viewer.
 - **Outline:** an even ink line in the stroke colour, drawn with a stencil so only the silhouette shows. The head and body each keep their own outline, so the chin is always outlined, and no thin lines show inside the heads.
-- **Grid routes (as in the hero sim):** each guy plans a whole route before it moves. Routes use long straight legs that are whole numbers of grid cells, 90° turns (now and then 45°) rounded off with a tight corner, and never cross themselves. Everyone rolls at the same steady speed. The ribbon lingers when the route ends, then lifts away from its start while the guy sets off again.
-- In the Subway and Roads worlds, cone guys ride the lines instead, and the lines repaint in the new palette. When a guy switches lines, its colour and head shape swap together with a little pop.
+- **Grid routes:** each guy plans a whole route before it moves. In the light-grid world the legs are whole grid cells with exact 90° corners, snapped to cell centres so the paths run through the squares' white space; in the plain world the hero sim's rounded corners and occasional diagonals apply. Each guy rolls at its own pace — a personal tempo and drifting mood set the base speed, and every route eases toward its own target with the occasional surge, so nobody moves at exactly the same speed for long. The ribbon lingers when the route ends, then lifts away from its start while the guy sets off again.
 
-**Tweak → Cone guys:** grid routes on/off, grid cell size, ribbon width.
-
-#### Heads
-These are the team's soft 3D heads, ported from `softHead()` in the d1 page of the healthier repo (`public/d1/yii.js`). There are five shapes (hexagon, star, triangle, square, circle). Each head is a light moulded colour with darker dot eyes of the same hue:
-
-| Colour | Head | Eyes / line |
-| --- | --- | --- |
-| Green | `#c5ee70` | `#55c06a` |
-| Orange | `#f6bb80` | `#d0814f` / line `#e0904f` |
-| Mint | `#7aeeb8` | `#5fc8b3` / line `#3fcf9a` |
-| Blue | `#a8c1d6` | `#3a4a75` / line `#5b7bb0` |
-| Red | `#ee6878` | `#bb5f68` / line `#e44d62` |
-
-Each head sits in the middle of a **wire "hamster ball"**:
-- The ball has an outline plus rolling middle lines that show the ball turning as it moves.
-- The head stays upright and looks around.
-- Balls sometimes float up off the ground.
-- About half carry a small stem with an arrow on top.
-- The trail comes out of the **back centre** of the ball.
-
-In the Subway and Roads worlds, heads ride lines one-way like trains. They keep a gap from whoever is ahead and never wait more than a moment. At shared stations they sometimes switch lines and take on the new line's colour, with a little pop.
-
-**Soft 3D** uses physical materials with a room-environment reflection. **Cel** uses toon shading in hard steps with a black ink hull.
-
-**Tweak → Heads:** how many, ball size, face toward viewer, wobble + nod, middle lines on the ball, how often they float, share with an arrow, head look.
-
-#### Blocks (saved)
-These are cubes that roll, hop and slide, cones that hop and pivot, and spheres with bump physics. Their pace follows their mood. With **hill + pile** on, they sometimes carry a piece up the central hill's spiral paths and add it to a growing pile.
-
-#### Orbits (saved)
-These are heads in wire bubbles with a ghosted wire skeleton and a stem topped by a coloured ball on a spring. They steer fluidly in any direction with a follow-the-leader rope trail.
+**Tweak → Cone guys:** how many, size, wobble + nod, eye size, eye spacing, grid routes on/off (plain world only — the light-grid world is always on the grid), grid cell size (rebuilds the grid and respawns), ribbon width, how long ribbons stay.
 
 ### Trails
 
-All trails are a **rope**: a chain of points dragged behind each character that fades over time.
+All trails are a **rope**: a chain of points dragged behind each character that fades over time. In the light-grid world the lines and dots instead follow the planned route point for point, so they keep the same right-angle corners as the ribbon.
 
-- **Ribbon (hero sim):** a solid flat band in each guy's fill colour with round ends. It doesn't fade: it lingers, then lifts away from its start. This is the default for cone guys.
-- **Dots (murmur):** evenly spaced dots that fade away. This is the default for heads.
+- **Ribbon (hero sim):** a solid flat band in each guy's fill colour with round ends. It doesn't fade: it lingers, then lifts away from its start. This is the default. Each trail gets a slight hue/saturation/lightness jitter so ribbons vary without transparency (which used to blend badly on corners).
+- **Ribbon + line:** the same translucent ribbon, with a thin opaque line in the guy's stronger stroke colour laid exactly on top of it.
+- **Dots (murmur):** evenly spaced dots that fade away.
 - **Lines + nodes:** a fat line with node dots.
 - **Stamps:** the character's outline printed along its path.
+- **Mixed (per shape):** each colour/shape gets its own trail kind — lines, dots, stamps, ribbon or ribbon+stamps — so all five kinds show at once. The deal is reshuffled every time the cast repopulates.
 - **Off:** no trails. This choice stays when you switch versions.
 
-**Tweak → Trails + phrases:** trail style, fade time, width, phrase frequency, and how long phrases stay up.
+**Tweak → Trails + phrases:** trail style, fade time, width, phrase frequency, and how long phrases stay up. Ambient status phrases are on by default and capped at two visible at once; hovering a character optionally pins a phrase.
 
 ### How the code is organised
 
 `playground/index.html` is one file, top to bottom:
 
 1. **Settings (`S`) and presets (`PRESETS`).** All tunables live in `S`. Each version is a preset of colours.
-2. **City:** ground, streets, buildings, the night lights and the optional hill.
-3. **Trails:** the shared rope/trail renderer (fat lines, dot points, stamps).
-4. **Characters:** an `Agent` base class plus `Cube`, `Cone`, `Sphere` and `Orb`. `Orb` covers both the bubble heads and the 3D heads in wire balls.
-5. **Heads:** `HEAD_CHARS` (colours), `HEAD_ROSTER` (shape and colour per character), the soft and cel material builders.
-6. **Roads and Subway networks:**
-   - `ROUTE_DEFS` and `HUB_XZ` are the starting lines and stops.
-   - `buildNet`, `rebuildNet` and `edgePath` build the lines, bundles and stations.
-   - `routeAt` samples a position along a route.
-   - `Orb.prototype.roadStep` is the riding logic.
-7. **Growth:** `planGrowth` picks where to grow, `growStep` starts the stroke animation, `growTick` runs each frame (growth timer, camera fit), and `hopOn` spawns a new rider.
-8. **Cameras and rendering:** the orthographic world camera, the perspective street cam, the fisheye shader passes, and the `frame()` loop.
-9. **UI:** the header handlers and the lil-gui folders.
+2. **Scene:** the flat ground plane, the light grid, lights, presets and the night ground mesh.
+3. **Trails:** the shared rope/trail renderer (fat lines, dot points, stamps) plus the route-following grid trails.
+4. **Characters:** an `Agent` base class plus `ConeGuy`, the only cast. Each guy plans grid routes or roams freely, and always poses through `conePose`.
+5. **Heads:** `CONE_PAL`/`CONE_CHARS` (the five colours, shapes and phrases), Will's procedural soft-head geometry (`softHead`, shared with the GLB exporter) and the toon/ink materials.
+6. **Grid routes:** `planRoute` picks a route (cardinal legs and exact 90° turns in the light-grid world, rounded corners and occasional diagonals in the plain world), `planPath`/`pathAt` sample it, `gridStep` rolls the guy along it, and `PathRibbon` draws the ribbon.
+7. **Cameras and rendering:** the orthographic world camera, the perspective street cam, the bloom/depth-blur/fisheye post passes, and the `frame()` loop.
+8. **UI:** the sidebar handlers and the lil-gui folders.
 
-`window.__lb` exposes a few hooks for testing in the console. For example, `__lb.step(300)` fast-forwards 10 seconds and `__lb.grow()` forces a growth step.
+`window.__lb` exposes a few hooks for testing in the console. For example, `__lb.step(300)` fast-forwards 10 seconds, `__lb.applyWorld('flat')` switches ground, and `__lb.trails()` lists the live trail entries.
 
 ---
 
@@ -278,7 +231,7 @@ Five ready-made 3D characters live in [`assets/3d/`](assets/3d/) as `.glb` files
 
 **Mesh names.** Each figure is a group named `cone-<shape>-<colour>` with four parts: `bowl`, `cone`, `head` (made of `head-shell` plus two `eye` meshes). Materials are named `<colour>-light` and `<colour>-dark`, so you can recolour them in Blender, Spline or code.
 
-**Getting the cel look.** glTF only stores base colours (PBR standard materials). For the flat cel style, swap each material for a toon material in the same colour. [`assets/3d/viewer.html`](assets/3d/viewer.html) shows how. Serve the folder (`npx serve assets/3d`) and open the viewer, then use the Soft / Cel buttons and drag to orbit.
+**Getting the cel look.** glTF only stores base colours (PBR standard materials). For the flat cel style, swap each material for a `MeshToonMaterial` in the same colour, as the snippet below shows. [`assets/3d/viewer.html`](assets/3d/viewer.html) renders the models with their own materials — serve the folder (`npx serve assets/3d`) and open the viewer to drag and orbit.
 
 ```js
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';

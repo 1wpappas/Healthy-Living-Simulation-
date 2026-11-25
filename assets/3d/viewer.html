@@ -7,9 +7,6 @@
 <style>
   html, body { margin: 0; height: 100%; background: #ffffff; font: 13px/1.4 ui-monospace, Menlo, monospace; }
   canvas { display: block; width: 100vw; height: 100vh; }
-  .bar { position: fixed; top: 12px; left: 12px; display: flex; gap: 6px; }
-  button { font: inherit; padding: 6px 10px; border: 1px solid #ccc; background: #fff; border-radius: 4px; cursor: pointer; }
-  button[aria-pressed="true"] { background: #111; color: #fff; border-color: #111; }
 </style>
 <script type="importmap">
 { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
@@ -17,10 +14,8 @@
 </script>
 </head>
 <body>
-<div class="bar"><button id="soft" aria-pressed="true">Soft</button><button id="cel" aria-pressed="false">Cel</button></div>
 <script type="module">
-// Loads cone-guys-all.glb and shows it with orbit controls. "Cel" swaps every material for a toon one in the same colour,
-// which is how to use these in a scene that wants the flat cel look (glTF itself only stores the base colours).
+// Loads cone-guys-all.glb and shows it with orbit controls, using the model's own materials.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -29,19 +24,10 @@ const scene = new THREE.Scene(); scene.background = new THREE.Color('#ffffff');
 const cam = new THREE.PerspectiveCamera(30, 1, 0.1, 100); cam.position.set(0, 2.6, 9.5);
 const controls = new OrbitControls(cam, renderer.domElement); controls.target.set(0, 1.1, 0); controls.enableDamping = true;
 scene.add(new THREE.HemisphereLight('#ffffff', '#cfcfcf', 1.6)); const sun = new THREE.DirectionalLight('#ffffff', 1.8); sun.position.set(3, 6, 5); scene.add(sun);
-const grad = new THREE.DataTexture(new Uint8Array([90, 170, 255]), 3, 1, THREE.RedFormat); grad.minFilter = grad.magFilter = THREE.NearestFilter; grad.needsUpdate = true;
-const soft = new Map(), toon = new Map();
-new GLTFLoader().load('cone-guys-all.glb', (g) => {
-  scene.add(g.scene);
-  g.scene.traverse((m) => { if (!m.isMesh) return; soft.set(m, m.material); toon.set(m, new THREE.MeshToonMaterial({ color: m.material.color, gradientMap: grad })); });
-});
-const setLook = (cel) => { for (const [m, mat] of (cel ? toon : soft)) m.material = mat;
-  document.getElementById('soft').setAttribute('aria-pressed', !cel); document.getElementById('cel').setAttribute('aria-pressed', cel); };
-document.getElementById('soft').onclick = () => setLook(false); document.getElementById('cel').onclick = () => setLook(true);
+new GLTFLoader().load('cone-guys-all.glb', (g) => { scene.add(g.scene); });
 function resize() { renderer.setSize(innerWidth, innerHeight); cam.aspect = innerWidth / innerHeight; cam.updateProjectionMatrix(); }
 addEventListener('resize', resize); resize();
 renderer.setAnimationLoop(() => { controls.update(); renderer.render(scene, cam); });
-window.__setLook = setLook;
 </script>
 </body>
 </html>
