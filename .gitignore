@@ -4,3 +4,4 @@ out/
 preview/
 scroll-pilot/public/fonts/*.otf
 .DS_Store
+hero-sim/fonts/*.otf

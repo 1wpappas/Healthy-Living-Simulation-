@@ -1,0 +1,1168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Healthier — A new path for cancer patients.</title>
+<style>
+  /* Metric overrides pin every browser to the fonts' hhea box (968 / 358 / 0),
+     so cap-top = top + 0.105em at line-height 1 — the same box Figma trims to. */
+  @font-face { font-family: "ABC Diatype"; src: url("fonts/ABCDiatype-Regular.otf") format("opentype");
+    font-weight: 400; ascent-override: 96.8%; descent-override: 35.8%; line-gap-override: 0%; }
+  @font-face { font-family: "ABC Diatype Rounded"; src: url("fonts/ABCDiatypeRounded-Black-Trial.otf") format("opentype");
+    font-weight: 900; ascent-override: 96.8%; descent-override: 35.8%; line-gap-override: 0%; }
+  @font-face { font-family: "ABC Diatype Mono"; src: url("fonts/ABCDiatypeMono-Regular-Trial.otf") format("opentype");
+    font-weight: 400; ascent-override: 96.8%; descent-override: 35.8%; line-gap-override: 0%; }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: #fff; overflow: hidden; }
+  canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; }
+  /* two scenes, stacked: scrolling slides the intro up and the world in from below */
+  .scene { position: fixed; inset: 0; overflow: hidden; will-change: transform; }
+  #scene2 { transform: translateY(100vh); }
+
+  /* Figma frame 1342:2870 — 2176 × 1227, scaled to fit the window */
+  .stage { position: fixed; left: 0; top: 0; width: 2176px; height: 1227px; transform-origin: 0 0; pointer-events: none; }
+  .t { position: absolute; line-height: 1; white-space: nowrap; font-kerning: normal; font-style: normal; }
+
+  /* Figma 1378:3735 — both centred on x 1088.5 (2176 wide box from 0.5); cap tops at 547 and 497 */
+  /* Figma 1378:3792 — 2048 × 1044; headline cap top at 80, left 80 */
+  .intro-stage { width: 2048px; height: 1044px; }
+  /* centred in the frame, set like the second headline (111px / 0.95, −6.66 tracking); cap top to last baseline = 183.2px */
+  .intro-head { left: 0; width: 2048px; text-align: center; top: 421.52px; /* (1044 − 183.2) / 2 − 0.08 × 111 */ white-space: pre;
+    font: 400 111px/0.95 "ABC Diatype", sans-serif; letter-spacing: -6.66px; color: #000; }
+
+  .headline { left: 0.5px; width: 2176px; text-align: center; top: 538.12px; /* 547 − 0.08 × 111: at line-height .95 cap-top = top + 0.08em */
+    font: 400 111px/0.95 "ABC Diatype", sans-serif; letter-spacing: -6.66px; color: #000; }
+  .logo { left: 0.5px; width: 2176px; text-align: center; top: 493.737px; /* 497 − 0.105 × 31.08 */
+    font: 900 31.08px/1 "ABC Diatype Rounded", sans-serif; letter-spacing: -1.8648px; color: #000; }
+
+  .tag { position: absolute; height: 30px; border-radius: 1.5px; overflow: hidden; }
+  .tag .t { top: 6.534px; /* 8.5 − 0.105 × 18.726 */
+    font: 400 18.726px/1 "ABC Diatype Mono", monospace; letter-spacing: 0.749px; }
+  /* hover tag: same box as the Figma tags (30px tall, 9px side padding, trailing tracking trimmed) */
+  /* thought stack — Figma 1342:3187: 28px tags, current at full, then 40%, 20%; head-shape icon 14px left */
+  .thought { position: absolute; left: 0; top: 0; transform-origin: 0 0; opacity: 0; transition: opacity .15s; will-change: transform; }
+  .thought.on { opacity: 1; }
+  .thought .icon { position: absolute; left: 0; top: -0.196px; width: 28.305px; height: 28.392px; overflow: visible; }
+  .thought .row { position: absolute; left: 42px; top: 0; height: 28px; padding: 0 8.251px 0 9px; border-radius: 1.5px; overflow: hidden;
+    transition: transform .5s cubic-bezier(.2,.7,.2,1), opacity .5s ease; }
+  .thought .row .t { position: relative; display: block; margin-top: 5.534px; /* 7.5 − 0.105 × 18.726 */
+    font: 400 18.726px/1 "ABC Diatype Mono", monospace; letter-spacing: 0.749px; }
+  canvas.hot { cursor: pointer; }
+  /* top nav: frosted white bar, edge to edge, 20px padding */
+  .nav { position: fixed; left: 0; right: 0; top: 0; z-index: 40; display: flex; align-items: center; justify-content: space-between; padding: 20px;
+    background: rgba(255,255,255,.55); -webkit-backdrop-filter: blur(18px) saturate(1.4); backdrop-filter: blur(18px) saturate(1.4);
+    border-bottom: 1px solid rgba(0,0,0,.04); }
+  .nav a { color: inherit; text-decoration: none; }
+  .nav-logo { display: block; width: 107px; height: 16px; color: #000; }
+  .nav-right { display: flex; align-items: center; gap: 8px; }
+  .nav a.nav-cta { display: flex; align-items: center; gap: 10px; height: 40px; padding: 0 20px 0 16px; border-radius: 999px; background: #0d0d0d; color: #fff;
+    font: 400 15px/1 "ABC Diatype", system-ui, sans-serif; letter-spacing: -.01em; white-space: nowrap; cursor: pointer; transition: background .15s; }
+  .nav a.nav-cta:hover { background: #2a2a2a; }
+  .nav-cta svg { width: 16px; height: 16px; flex: none; }
+  .nav-menu { width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,.7); border: 1px solid rgba(0,0,0,.08); display: grid; place-items: center; cursor: pointer; padding: 0; transition: background .15s; }
+  .nav-menu:hover { background: #fff; }
+  .nav-menu svg { width: 16px; height: 16px; }
+  .lil-gui.root { top: 81px !important; max-height: calc(100vh - 91px); overflow-y: auto; overscroll-behavior: contain; }
+  .lil-gui.root > .children { overflow: visible; }
+</style>
+</head>
+<body>
+<nav class="nav">
+  <a href="#" aria-label="Healthier home"><svg class="nav-logo" aria-label="Healthier" role="img" width="107" height="16" viewBox="0 0 107 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M12.5596 15.9998H15.9995V0.000244141H12.5596V15.9998Z" fill="currentColor"/>
+<path d="M7.99976 8C6.0116 8 4.55987 9.61172 4.55986 11.5999V15.9998H7.99976V8Z" fill="currentColor"/>
+<path d="M0 15.9998H3.43989V0.000244141H0V15.9998Z" fill="currentColor"/>
+<path d="M7.99976 8C9.98791 8 11.4396 6.38829 11.4397 4.40013V0.000244141H7.99976V8Z" fill="currentColor"/>
+<path d="M46.9303 4.1701C47.9857 4.1701 48.9239 4.40415 49.7447 4.87237C50.5656 5.34059 51.2031 6.02104 51.6575 6.91359C52.1119 7.80614 52.3391 8.85962 52.3391 10.0741C52.3391 10.3813 52.3245 10.6374 52.2952 10.8422H43.9204C43.9797 11.31 44.0963 11.7271 44.27 12.0933C44.5339 12.6347 44.9003 13.0517 45.3694 13.3443C45.8531 13.6223 46.4028 13.7613 47.0184 13.7613C47.4288 13.7613 47.8099 13.7101 48.1616 13.6077C48.5281 13.4906 48.8359 13.337 49.0851 13.1468C49.3343 12.9566 49.5102 12.7297 49.6128 12.4664H52.1853C51.9947 13.2126 51.6502 13.8491 51.1519 14.3759C50.6681 14.9026 50.0671 15.305 49.3489 15.583C48.6453 15.861 47.8685 16 47.0184 16C45.8897 16 44.8856 15.7658 44.0062 15.2976C43.1413 14.8294 42.4744 14.1491 42.0053 13.2565C41.5363 12.364 41.3018 11.3031 41.3018 10.0741C41.3018 8.85963 41.5363 7.80613 42.0053 6.91359C42.4744 6.02104 43.134 5.34059 43.9841 4.87237C44.8343 4.40416 45.8164 4.17011 46.9303 4.1701ZM46.9084 6.36489C46.3221 6.36489 45.7944 6.51121 45.3254 6.80385C44.871 7.08185 44.5119 7.49883 44.248 8.05482C44.1482 8.27748 44.0684 8.51896 44.0086 8.77916H49.6178C49.5615 8.51899 49.4868 8.27745 49.3929 8.05482C49.1584 7.49882 48.8212 7.08185 48.3815 6.80385C47.9564 6.51122 47.4654 6.3649 46.9084 6.36489Z" fill-rule="evenodd" clip-rule="evenodd" fill="currentColor"/>
+<path d="M58.447 4.1701C59.3118 4.17011 60.0813 4.30909 60.7556 4.58709C61.4445 4.85047 61.9868 5.26753 62.3826 5.83816C62.7783 6.4088 62.9762 7.12575 62.9762 7.98902V15.7805H60.4258V14.4909C60.2301 14.7059 60.0103 14.9017 59.7662 15.0781C59.3411 15.3854 58.872 15.6196 58.359 15.7805C57.8606 15.9268 57.333 16 56.776 16C56.0724 16 55.4347 15.8684 54.8631 15.605C54.2914 15.3416 53.8371 14.9538 53.5 14.4417C53.1628 13.9149 52.9942 13.2785 52.9942 12.5323C52.9942 11.7275 53.1921 11.0763 53.5879 10.5788C53.9983 10.0667 54.5553 9.679 55.2589 9.41563C55.9771 9.15226 56.8419 8.96202 57.8533 8.84496C58.5422 8.75717 59.0552 8.67667 59.3924 8.60351C59.7441 8.51573 60.0007 8.39874 60.1619 8.25243C60.3378 8.10611 60.4258 7.90854 60.4258 7.6598C60.4258 7.41106 60.3452 7.19157 60.1839 7.00136C60.0227 6.81114 59.7881 6.66483 59.4803 6.5624C59.1725 6.44535 58.8134 6.38686 58.403 6.38686C57.9779 6.38686 57.5967 6.44535 57.2596 6.5624C56.9225 6.67946 56.6367 6.85503 56.4022 7.08913C56.1823 7.30861 56.0357 7.57201 55.9624 7.87928H53.324C53.3973 7.07453 53.6685 6.39417 54.1376 5.83816C54.6066 5.28216 55.2149 4.8651 55.9624 4.58709C56.71 4.30908 57.5382 4.1701 58.447 4.1701ZM60.4258 10.3454C60.3758 10.3653 60.3245 10.3847 60.2718 10.4033C60.0373 10.4764 59.7735 10.5496 59.4803 10.6228C59.2018 10.6959 58.916 10.7544 58.6228 10.7983L58.0292 10.8642C57.5015 10.9374 57.0617 11.0324 56.7099 11.1495C56.3728 11.2665 56.1091 11.4349 55.9185 11.6544C55.728 11.8592 55.6326 12.1298 55.6326 12.4664C55.6326 12.7444 55.7059 12.9859 55.8525 13.1907C56.0137 13.3955 56.2336 13.5491 56.5121 13.6515C56.7906 13.754 57.1131 13.8052 57.4795 13.8052C57.9192 13.8052 58.3663 13.7028 58.8207 13.498C59.2751 13.2785 59.6562 12.9638 59.9641 12.5541C60.2719 12.1298 60.4258 11.625 60.4258 11.0398V10.3454Z" fill-rule="evenodd" clip-rule="evenodd" fill="currentColor"/>
+<path d="M94.222 4.1701C95.2773 4.17011 96.2154 4.40416 97.0362 4.87237C97.8571 5.34059 98.4947 6.02104 98.9491 6.91359C99.4035 7.80613 99.6306 8.85963 99.6306 10.0741C99.6306 10.3813 99.616 10.6374 99.5867 10.8422H91.2119C91.2712 11.31 91.3878 11.7271 91.5615 12.0933C91.8254 12.6347 92.1918 13.0517 92.6609 13.3443C93.1446 13.6223 93.6943 13.7613 94.3099 13.7613C94.7203 13.7613 95.1014 13.7101 95.4531 13.6077C95.8196 13.4906 96.1274 13.337 96.3766 13.1468C96.6258 12.9566 96.8017 12.7297 96.9043 12.4664H99.4768C99.2862 13.2126 98.9417 13.8491 98.4434 14.3759C97.9597 14.9026 97.3587 15.305 96.6405 15.583C95.9369 15.861 95.16 16 94.3099 16C93.1812 16 92.1771 15.7658 91.2977 15.2976C90.4329 14.8294 89.7659 14.149 89.2968 13.2565C88.8278 12.364 88.5933 11.3031 88.5933 10.0741C88.5933 8.85963 88.8278 7.80613 89.2968 6.91359C89.7659 6.02105 90.4255 5.34059 91.2757 4.87237C92.1258 4.40415 93.108 4.1701 94.222 4.1701ZM94.2 6.36489C93.6136 6.36489 93.0859 6.51121 92.6169 6.80385C92.1625 7.08185 91.8034 7.49883 91.5395 8.05482C91.4397 8.27748 91.36 8.51896 91.3001 8.77916H96.9093C96.853 8.51899 96.7783 8.27745 96.6844 8.05482C96.4499 7.49882 96.1127 7.08185 95.673 6.80385C95.2479 6.51122 94.7569 6.3649 94.2 6.36489Z" fill-rule="evenodd" clip-rule="evenodd" fill="currentColor"/>
+<path d="M30.6819 6.6282H37.9595V0.416989H40.6419V15.7805H37.9595V9.13035H30.6819V15.7805H27.9995V0.416989H30.6819V6.6282Z" fill="currentColor"/>
+<path d="M66.8913 15.7805H64.2968V0.416989H66.8913V15.7805Z" fill="currentColor"/>
+<path d="M70.8045 4.38958H73.0251V6.82582H70.8045V12.0933C70.8045 12.5176 70.9217 12.8322 71.1563 13.037C71.3908 13.2419 71.7279 13.3443 72.1677 13.3443H73.0251V15.7805H72.1677C71.3175 15.7805 70.5992 15.6415 70.0129 15.3635C69.4266 15.0709 68.9796 14.6465 68.6718 14.0905C68.364 13.5345 68.2101 12.8688 68.2101 12.0933V1.58018H70.8045V4.38958Z" fill="currentColor"/>
+<path d="M76.4989 5.59779C76.6843 5.40648 76.8895 5.23049 77.1146 5.06999C77.525 4.77736 77.972 4.55787 78.4557 4.41155C78.9541 4.2506 79.4598 4.1701 79.9729 4.1701C80.7937 4.17011 81.5046 4.32376 82.1055 4.63103C82.7211 4.92367 83.1902 5.38454 83.5126 6.0137C83.8498 6.64288 84.0184 7.41839 84.0184 8.3402V15.7805H81.4239V8.99864C81.4239 8.17925 81.2187 7.5793 80.8083 7.19887C80.3979 6.80382 79.8263 6.60635 79.0934 6.60634C78.683 6.60634 78.2799 6.71609 77.8841 6.93556C77.4884 7.1404 77.1586 7.45496 76.8947 7.87928C76.6309 8.28897 76.4989 8.79376 76.4989 9.39366V15.7805H73.9045V0.416989H76.4989V5.59779Z" fill="currentColor"/>
+<path d="M87.9319 15.7805H85.3375V4.38958H87.9319V15.7805Z" fill="currentColor"/>
+<path d="M107 6.86965H106.56C105.915 6.86965 105.306 6.99407 104.735 7.24281C104.178 7.49155 103.731 7.8647 103.394 8.36217C103.057 8.84502 102.888 9.43756 102.888 10.1399V15.7805H100.294V4.38958H102.888V6.22675C103.09 5.91779 103.317 5.6419 103.57 5.39921C103.98 4.98951 104.434 4.6822 104.933 4.47735C105.446 4.27251 105.988 4.1701 106.56 4.1701H107V6.86965Z" fill="currentColor"/>
+<path d="M86.6567 0C86.9205 3.95347e-06 87.1624 0.0584962 87.3822 0.17554C87.6021 0.292596 87.7707 0.460928 87.888 0.680406C88.0199 0.885242 88.0859 1.12666 88.0859 1.40464C88.0859 1.668 88.0199 1.90942 87.888 2.12888C87.7707 2.33373 87.6021 2.49472 87.3822 2.61178C87.1624 2.72883 86.9205 2.78732 86.6567 2.78732C86.3782 2.78732 86.129 2.72882 85.9092 2.61178C85.6893 2.49472 85.5133 2.33373 85.3814 2.12888C85.2642 1.90942 85.2056 1.668 85.2056 1.40464C85.2056 1.12666 85.2642 0.885243 85.3814 0.680406C85.5133 0.460928 85.6893 0.292596 85.9092 0.17554C86.129 0.0585011 86.3782 0 86.6567 0Z" fill="currentColor"/>
+</svg></a>
+  <div class="nav-right">
+    <a class="nav-cta" href="#"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"><path d="M9.5 1.75H4.25a1.5 1.5 0 0 0-1.5 1.5v9.5a1.5 1.5 0 0 0 1.5 1.5h7.5a1.5 1.5 0 0 0 1.5-1.5V5.5L9.5 1.75Z"/><path d="M9.5 1.75V5.5h3.75M5.75 8.75h4.5M5.75 11.25h3"/></svg>Tell us about your case</a>
+    <button class="nav-menu" aria-label="Menu"><svg viewBox="0 0 16 16" fill="none" stroke="#000" stroke-width="1.4" stroke-linecap="round"><path d="M2 5.75h12M7 10.25h7"/></svg></button>
+  </div>
+</nav>
+<div class="scene" id="scene1">
+  <canvas id="intro" aria-hidden="true"></canvas>
+  <div class="stage intro-stage" id="introStage">
+    <h1 class="t intro-head">A new path for
+cancer patients.</h1>
+  </div>
+</div>
+
+<div class="scene" id="scene2">
+<canvas id="world" aria-hidden="true"></canvas>
+
+<div class="stage" id="stage">
+  <h2 class="t headline">The world of frontier research,<br>now on your care team.</h2>
+  <div class="t logo" aria-label="Healthier">He<span style="letter-spacing:-1.12px">a</span><span style="letter-spacing:-0.64px">l</span><span style="letter-spacing:-0.8px">t</span><span style="letter-spacing:-1.12px">h</span>ier</div>
+
+  <div class="thought" id="thought"><svg class="icon" aria-hidden="true"><path/></svg></div>
+</div>
+</div>
+
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+               "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
+</script>
+<script type="module">
+// ── Will's 3D heads, live: the soft moulded heads from the Living Block (ported from healthier d1/yii.js), cel shaded.
+// One small offscreen three.js renderer draws each character's head every frame at its own turn / tilt / nod,
+// and the 2D canvas stamps it on top of the cone body with an outline in the character's dark colour.
+import * as THREE from 'three';
+import { TessellateModifier } from 'three/addons/modifiers/TessellateModifier.js';
+import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
+import GUI from 'three/addons/libs/lil-gui.module.min.js';
+const YU = 2 / 212;
+const sstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+function yPoly(n, r, rot = 0) { const s = new THREE.Shape(); for (let i = 0; i < n; i++) { const a = rot + i / n * Math.PI * 2, x = Math.sin(a) * r, y = Math.cos(a) * r; i ? s.lineTo(x, y) : s.moveTo(x, y); } s.closePath(); return s; }
+function yStar(points, ro, ri) { const s = new THREE.Shape(); for (let i = 0; i < points * 2; i++) { const a = i / (points * 2) * Math.PI * 2, r = i % 2 ? ri : ro, x = Math.sin(a) * r, y = Math.cos(a) * r; i ? s.lineTo(x, y) : s.moveTo(x, y); } s.closePath(); return s; }
+function yRect(w, h) { const s = new THREE.Shape(); s.moveTo(-w / 2, -h / 2); s.lineTo(w / 2, -h / 2); s.lineTo(w / 2, h / 2); s.lineTo(-w / 2, h / 2); s.closePath(); return s; }
+const Y_OUTLINES = {
+  triangle: () => { const o = new THREE.Shape(); o.moveTo(-82 * YU, -55 * YU); o.lineTo(82 * YU, -55 * YU); o.lineTo(-4 * YU, 70 * YU); o.closePath(); return o; },
+  hexagon: () => yPoly(6, 66 * YU),
+  star: () => yStar(8, 69 * YU, 48 * YU),
+  square: () => yRect(110 * YU, 110 * YU),
+};
+const Y_DEPTH = { triangle: .5, hexagon: .56, star: .46, square: .9 };
+const Y_EYES = { triangle: -.117, hexagon: .03, star: -.026, square: -.107, circle: -.034 };
+let Y_EYE_X = .295, Y_EYE_R = .085;
+const Y_FILLET = { triangle: .1, hexagon: .1, star: .12, square: .1 };
+const Y_BEVEL = { triangle: .085, hexagon: .09, star: .075, square: .09 };
+let Y_INFLATE = .07, Y_THIN_W = .24;
+function sdPoly(px, py, P) {
+  let d = (px - P[0][0]) ** 2 + (py - P[0][1]) ** 2, s = 1;
+  for (let i = 0, j = P.length - 1; i < P.length; j = i, i++) {
+    const ex = P[j][0] - P[i][0], ey = P[j][1] - P[i][1], wx = px - P[i][0], wy = py - P[i][1];
+    const h = Math.max(0, Math.min(1, (wx * ex + wy * ey) / (ex * ex + ey * ey))), bx = wx - ex * h, by = wy - ey * h;
+    d = Math.min(d, bx * bx + by * by);
+    const c1 = py >= P[i][1], c2 = py < P[j][1], c3 = ex * wy > ey * wx;
+    if ((c1 && c2 && c3) || (!c1 && !c2 && !c3)) s = -s;
+  }
+  return s * Math.sqrt(d);
+}
+function filletPts(src, r, n = 10) {
+  const P = src.slice(); if (P.length > 2 && P[0].distanceTo(P[P.length - 1]) < 1e-6) P.pop();
+  const out = [];
+  for (let i = 0; i < P.length; i++) {
+    const p = P[i], a = P[(i + P.length - 1) % P.length], b = P[(i + 1) % P.length];
+    const da = a.clone().sub(p), db = b.clone().sub(p), la = da.length(), lb = db.length(); da.divideScalar(la); db.divideScalar(lb);
+    const ang = Math.acos(Math.max(-1, Math.min(1, da.dot(db))));
+    const t = Math.min(r / Math.tan(ang / 2), la * .45, lb * .45);
+    const p1 = p.clone().addScaledVector(da, t), p2 = p.clone().addScaledVector(db, t);
+    for (let k = 0; k <= n; k++) { const s = k / n, u = 1 - s; out.push(new THREE.Vector2(u * u * p1.x + 2 * u * s * p.x + s * s * p2.x, u * u * p1.y + 2 * u * s * p.y + s * s * p2.y)); }
+  }
+  return out;
+}
+const softCache = {};
+function softHead(kind) {
+  if (softCache[kind]) return softCache[kind];
+  if (kind === 'circle') {               // the round head is a plain sphere in d1
+    const r = 60 * YU, g = new THREE.SphereGeometry(r, 72, 48), uv = g.attributes.uv;
+    for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * 2 * Math.PI * r, uv.getY(i) * Math.PI * r);
+    g.setAttribute('thin', new THREE.BufferAttribute(new Float32Array(g.attributes.position.count).fill(.3), 1));
+    const zOn = (x, y) => Math.sqrt(Math.max(0, r * r - x * x - y * y));
+    const eyeGeo = (ex, ey) => { const e = new THREE.RingGeometry(0, Y_EYE_R, 40, 6), p = e.attributes.position, z0 = zOn(ex, ey);
+      for (let i = 0; i < p.count; i++) p.setZ(i, zOn(ex + p.getX(i), ey + p.getY(i)) - z0); e.computeVertexNormals(); return e; };
+    return (softCache[kind] = { geo: g, eyeZ: (ex, ey) => zOn(ex, ey) + .006, eyeGeo, h: 2 * r });
+  }
+  const outer = Y_OUTLINES[kind](), D = Y_DEPTH[kind];
+  const pts = filletPts(outer.getPoints(), Y_FILLET[kind]), arr = pts.map(v => [v.x, v.y]);
+  const BT = Math.min(.15, D * .3), BS = Y_BEVEL[kind];
+  let g = new THREE.ExtrudeGeometry(new THREE.Shape(pts), { depth: D - 2 * BT, bevelEnabled: true, bevelThickness: BT, bevelSize: BS, bevelOffset: -BS, bevelSegments: 6, curveSegments: 12, steps: 1 });
+  g.translate(0, 0, -(D - 2 * BT) / 2);
+  g = new TessellateModifier(.05, 8).modify(g);
+  g.deleteAttribute('normal'); g.deleteAttribute('uv'); g = mergeVertices(g, 1e-4);
+  const pos = g.attributes.position, n = pos.count, thin = new Float32Array(n), uv = new Float32Array(n * 2);
+  const pillow = (x, y) => Y_INFLATE * sstep(0, .32, Math.max(0, -sdPoly(x, y, arr)));
+  for (let i = 0; i < n; i++) {
+    const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i), inside = Math.max(0, -sdPoly(x, y, arr));
+    pos.setZ(i, z + Math.sign(z) * pillow(x, y) * Math.min(1, Math.abs(z) / (D / 2)));
+    thin[i] = 1 - sstep(0, Y_THIN_W, inside);
+    uv[i * 2] = x + z * .6; uv[i * 2 + 1] = y + z * .6;
+  }
+  g.setAttribute('thin', new THREE.BufferAttribute(thin, 1)); g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  g.computeVertexNormals(); g.computeBoundingBox();
+  const eyeGeo = (ex, ey) => {
+    const e = new THREE.RingGeometry(0, Y_EYE_R, 40, 6), p = e.attributes.position;
+    for (let i = 0; i < p.count; i++) p.setZ(i, pillow(ex + p.getX(i), ey + p.getY(i)) - pillow(ex, ey));
+    e.computeVertexNormals(); return e;
+  };
+  const bb = g.boundingBox;
+  return (softCache[kind] = { geo: g, eyeZ: (ex, ey) => D / 2 + pillow(ex, ey) + .006, eyeGeo, h: Math.max(bb.max.y - bb.min.y, (bb.max.x - bb.min.x) / 0.87), cy: (bb.max.y + bb.min.y) / 2 });   // size by height, or by width for the wide ones, so every head sits in its bubble like the hexagon in the reference
+}
+
+const TOON_STEPS = (() => { const d = new Uint8Array([212, 212, 212, 255, 242, 242, 242, 255, 255, 255, 255, 255]); const t = new THREE.DataTexture(d, 3, 1); t.minFilter = t.magFilter = THREE.NearestFilter; t.needsUpdate = true; return t; })();
+const RES = 256, FRAME = 1.25;                       // render size (px) and half-width of the view (head units)
+const gl = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true }); gl.setPixelRatio(1); gl.setSize(RES, RES, false); gl.setClearColor(0x000000, 0);
+const scene = new THREE.Scene(); scene.add(new THREE.HemisphereLight('#ffffff', '#bdbdbd', 1.3)); const key = new THREE.DirectionalLight('#ffffff', 1.6); key.position.set(-2, 3, 4); scene.add(key);
+const cam = new THREE.OrthographicCamera(-FRAME, FRAME, FRAME, -FRAME, 0.1, 20); const EL = 0.42; cam.position.set(0, Math.sin(EL) * 8, Math.cos(EL) * 8); cam.lookAt(0, 0, 0);
+const heads = {};                                    // shape+colour -> { root, yaw, pitch }
+function headFor(shape, f, s) {
+  const k = shape + f + s; if (heads[k]) return heads[k];
+  const c = softHead(shape), sc = 1.3 / softHead('hexagon').h * DIALS.headSize * (DIALS['size_' + shape] ?? 1), root = new THREE.Group(), yaw = new THREE.Group(), pitch = new THREE.Group(); root.add(yaw); yaw.add(pitch);
+  const mesh = new THREE.Group(); mesh.scale.setScalar(sc); mesh.position.y = -(c.cy || 0) * sc; pitch.add(mesh);
+  mesh.add(new THREE.Mesh(c.geo, new THREE.MeshToonMaterial({ color: f, gradientMap: TOON_STEPS, emissive: new THREE.Color(f).multiplyScalar(.36), toneMapped: false })));
+  const eyeM = new THREE.MeshBasicMaterial({ color: s, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 });
+  for (const sd of [-1, 1]) { const ex = sd * Y_EYE_X, ey = Y_EYES[shape] + DIALS.eyeHeight, e = new THREE.Mesh(c.eyeGeo(ex, ey), eyeM); e.position.set(ex, ey, c.eyeZ(ex, ey)); mesh.add(e); }
+  root.visible = false; scene.add(root); return (heads[k] = { root, yaw, pitch });
+}
+// a 2D scratch canvas per draw: head render + outline ring in the dark colour
+const tmp = document.createElement('canvas'); tmp.width = tmp.height = RES; const tctx = tmp.getContext('2d');
+const sil = document.createElement('canvas'); sil.width = sil.height = RES; const sctx = sil.getContext('2d');
+let OUT = 6, DIRS = [];
+const setOut = (o) => { OUT = o; DIRS = Array.from({ length: 16 }, (_, i) => [Math.cos(i / 16 * Math.PI * 2) * OUT, Math.sin(i / 16 * Math.PI * 2) * OUT]); }; setOut(6);
+function drawHead3D(ctx, shape, f, s, cx, cy, w, yaw, roll, nod) {
+  const h = headFor(shape, f, s); h.root.visible = true; h.yaw.rotation.y = yaw; h.pitch.rotation.x = nod; h.root.rotation.z = -roll;
+  gl.render(scene, cam); h.root.visible = false;
+  sctx.globalCompositeOperation = 'source-over'; sctx.clearRect(0, 0, RES, RES); sctx.drawImage(gl.domElement, 0, 0);
+  sctx.globalCompositeOperation = 'source-in'; sctx.fillStyle = s; sctx.fillRect(0, 0, RES, RES);
+  tctx.clearRect(0, 0, RES, RES); for (const [dx, dy] of DIRS) tctx.drawImage(sil, dx, dy); tctx.drawImage(gl.domElement, 0, 0);
+  const size = w / (1.3 / (2 * FRAME));               // the head spans 1.3 of the 2·FRAME view
+  ctx.drawImage(tmp, cx - size / 2, cy - size / 2, size, size);
+}
+// flat icon: the head's outline only, as an SVG path (front view, y down)
+function iconPath(shape) {
+  if (shape === 'circle') { const r = 60 * YU; return { d: `M ${-r} 0 A ${r} ${r} 0 1 0 ${r} 0 A ${r} ${r} 0 1 0 ${-r} 0 Z`, box: [-r, -r, 2 * r, 2 * r] }; }
+  const pts = filletPts(Y_OUTLINES[shape]().getPoints(), Y_FILLET[shape]); let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+  const d = pts.map((p, i) => { x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); y0 = Math.min(y0, -p.y); y1 = Math.max(y1, -p.y); return (i ? 'L' : 'M') + p.x.toFixed(4) + ' ' + (-p.y).toFixed(4); }).join(' ') + ' Z';
+  return { d, box: [x0, y0, x1 - x0, y1 - y0] };
+}
+// height of a head in view units, at the shared scale (for seating it on the neck)
+function heightOf(shape) { const c = softHead(shape), sc = 1.3 / softHead('hexagon').h * DIALS.headSize * (DIALS['size_' + shape] ?? 1); if (!c.geo.boundingBox) c.geo.computeBoundingBox(); const b = c.geo.boundingBox; return (b.max.y - b.min.y) * sc; }
+const outlineFrac = () => OUT / RES * 2 * FRAME / 1.3;   // outline width as a fraction of the head-width unit w
+
+// ───────── dial kit: live controls for the heads and bodies (press D to show / hide; settings are remembered) ─────────
+const PALETTES = {
+  'Will (new)': { col_green_f: '#cefc6f', col_green_s: '#458a00', col_orange_f: '#ffd53d', col_orange_s: '#dd5703', col_mint_f: '#c7feff', col_mint_s: '#3600b3',
+    col_blue_f: '#cfccff', col_blue_s: '#5900ff', col_red_f: '#ffc2ef', col_red_s: '#ff00ae' },
+  'Original': { col_green_f: '#cefc6f', col_green_s: '#36e057', col_orange_f: '#fcb66f', col_orange_s: '#e07836', col_mint_f: '#6ffcbb', col_mint_s: '#36e0a2',
+    col_blue_f: '#6fbcfc', col_blue_s: '#3676e0', col_red_f: '#fc6f80', col_red_s: '#e0364e' },
+};
+const DEFAULTS = { eyeSpacing: .295, eyeSize: .085, eyeHeight: 0, headSize: 1, puff: .07, depth: 1, roundness: 1, bevel: 1, outline: 6,
+  bowl: .458, coneHeight: .911, neck: .432, turnSpeed: 3,
+  green: 'hexagon', orange: 'star', mint: 'triangle', blue: 'square', red: 'circle',
+  size_hexagon: 1, size_star: 1, size_triangle: 1, size_square: .84, size_circle: 1,
+  palette: 'Will (new)', ...PALETTES['Will (new)'],
+  // type: headline (both scenes), logo, tags. tracking is in em (−0.06 = Figma −6.66px at 111px)
+  hd_font: '"ABC Diatype", sans-serif', hd_weight: 400, hd_size: 111, hd_track: -.06, hd_lead: .95,
+  lg_font: '"ABC Diatype Rounded", sans-serif', lg_weight: 900, lg_size: 31.08, lg_track: -.06, lg_lead: 1,
+  tg_font: '"ABC Diatype Mono", monospace', tg_weight: 400, tg_size: 18.726, tg_track: .04, tg_lead: 1 };   // the cube head is deep, so it reads big: trimmed to match the green guy
+const BASE = { depth: { ...Y_DEPTH }, fillet: { ...Y_FILLET }, bevel: { ...Y_BEVEL } };
+let saved = {}; try { saved = JSON.parse(localStorage.getItem('cone-guys-dials') || '{}'); } catch (e) {}
+if (saved.size_square == null) delete saved.size_square;
+const DIALS = window.DIALS = { ...DEFAULTS, ...saved };
+function applyGeometry() {          // shape dials change the geometry: rebuild every head
+  Y_EYE_X = DIALS.eyeSpacing; Y_EYE_R = DIALS.eyeSize; Y_INFLATE = DIALS.puff;
+  for (const k in BASE.depth) Y_DEPTH[k] = BASE.depth[k] * DIALS.depth;
+  for (const k in BASE.fillet) Y_FILLET[k] = BASE.fillet[k] * DIALS.roundness;
+  for (const k in BASE.bevel) Y_BEVEL[k] = BASE.bevel[k] * DIALS.bevel;
+  for (const k in softCache) { softCache[k].geo.dispose(); delete softCache[k]; }
+  for (const k in heads) { scene.remove(heads[k].root); delete heads[k]; }
+  setOut(DIALS.outline);
+  window.dispatchEvent(new Event('dials'));
+}
+function save() { try { localStorage.setItem('cone-guys-dials', JSON.stringify(DIALS)); } catch (e) {} }
+let rebuildT = 0; const rebuild = () => { clearTimeout(rebuildT); rebuildT = setTimeout(() => { applyGeometry(); save(); }, 120); };
+const gui = new GUI({ title: 'Dial kit  (D to hide)' }); gui.domElement.style.zIndex = 50;
+const fE = gui.addFolder('Eyes');
+fE.add(DIALS, 'eyeSpacing', .12, .5, .005).name('spacing').onChange(rebuild);
+fE.add(DIALS, 'eyeSize', .03, .18, .002).name('size').onChange(rebuild);
+fE.add(DIALS, 'eyeHeight', -.3, .3, .005).name('height').onChange(rebuild);
+const fH = gui.addFolder('Head');
+fH.add(DIALS, 'headSize', .6, 1.5, .01).name('size').onChange(rebuild);
+fH.add(DIALS, 'depth', .4, 2, .01).name('thickness').onChange(rebuild);
+fH.add(DIALS, 'puff', 0, .2, .005).name('puffiness').onChange(rebuild);
+fH.add(DIALS, 'roundness', 0, 3, .05).name('corner roundness').onChange(rebuild);
+fH.add(DIALS, 'bevel', .3, 1.6, .02).name('edge bevel').onChange(rebuild);
+fH.add(DIALS, 'outline', 0, 14, .5).name('outline weight').onChange(rebuild);
+fH.add(DIALS, 'turnSpeed', .5, 10, .1).name('turn speed').onChange(save);
+const SHAPES3 = ['hexagon', 'star', 'triangle', 'square', 'circle'], fS = gui.addFolder('Head shape per colour');
+for (const k of ['green', 'orange', 'mint', 'blue', 'red']) fS.add(DIALS, k, SHAPES3).onChange(rebuild);
+const fZ = gui.addFolder('Size per head shape');
+for (const k of SHAPES3) fZ.add(DIALS, 'size_' + k, .6, 1.4, .01).name(k).onChange(rebuild);
+const fB = gui.addFolder('Body');
+fB.add(DIALS, 'bowl', .3, .7, .005).name('bowl size').onChange(save);
+fB.add(DIALS, 'coneHeight', .5, 1.5, .01).name('cone height').onChange(save);
+fB.add(DIALS, 'neck', .2, .8, .005).name('head height on neck').onChange(save);
+// ── type ──
+const FONTS = { 'ABC Diatype': '"ABC Diatype", sans-serif', 'ABC Diatype Rounded': '"ABC Diatype Rounded", sans-serif', 'ABC Diatype Mono': '"ABC Diatype Mono", monospace',
+  'Inter': '"Inter", sans-serif', 'DM Sans': '"DM Sans", sans-serif', 'Manrope': '"Manrope", sans-serif', 'Space Grotesk': '"Space Grotesk", sans-serif',
+  'Instrument Sans': '"Instrument Sans", sans-serif', 'Fraunces (serif)': '"Fraunces", serif', 'JetBrains Mono': '"JetBrains Mono", monospace', 'IBM Plex Mono': '"IBM Plex Mono", monospace',
+  'System sans': 'system-ui, sans-serif', 'System mono': 'ui-monospace, monospace' };
+{ const l = document.createElement('link'); l.rel = 'stylesheet';   // variable Google fonts, so the weight dial is real on these
+  l.href = 'https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=DM+Sans:opsz,wght@9..40,100..1000&family=Manrope:wght@200..800&family=Space+Grotesk:wght@300..700&family=Instrument+Sans:wght@400..700&family=Fraunces:opsz,wght@9..144,100..900&family=JetBrains+Mono:wght@100..800&family=IBM+Plex+Mono:wght@100;200;300;400;500;600;700&display=swap';
+  document.head.appendChild(l); }
+const typeCSS = document.createElement('style'); document.head.appendChild(typeCSS);
+function applyType() {
+  const D = DIALS, rule = (sel, p, extra = '') => `${sel}{font-family:${D[p + '_font']}!important;font-weight:${D[p + '_weight']}!important;font-size:${D[p + '_size']}px!important;letter-spacing:${D[p + '_track']}em!important;line-height:${D[p + '_lead']}!important;${extra}}`;
+  typeCSS.textContent = rule('.intro-head,.headline', 'hd') + rule('.logo', 'lg') + rule('.tag .t,.thought .row .t', 'tg')
+    + '.thought .row{height:auto!important;padding-top:0;padding-bottom:0}.thought .row .t{margin:' + (D.tg_size * .2955).toFixed(2) + 'px 0 ' + (D.tg_size * .2).toFixed(2) + 'px!important}';
+}
+applyType();
+const typeChange = () => { applyType(); save(); };
+const fT = gui.addFolder('Type');
+for (const [p, label, max] of [['hd', 'Headline', 200], ['lg', 'Logo', 80], ['tg', 'Tags', 40]]) {
+  const f = fT.addFolder(label);
+  f.add(DIALS, p + '_font', FONTS).name('font').onChange(typeChange);
+  f.add(DIALS, p + '_weight', 100, 1000, 10).name('weight').onChange(typeChange);
+  f.add(DIALS, p + '_size', 6, max, .1).name('size (px)').onChange(typeChange);
+  f.add(DIALS, p + '_track', -.15, .3, .001).name('tracking (em)').onChange(typeChange);
+  f.add(DIALS, p + '_lead', .6, 2, .01).name('leading').onChange(typeChange);
+  f.close();
+}
+fT.domElement.querySelector('.children').insertAdjacentHTML('afterbegin', '<div style="padding:4px 8px 6px;font-size:11px;line-height:1.4;color:#999">Diatype files here have one weight each, so weight on them is browser-faked. The Google fonts have real weights.</div>');
+const COLS = ['green', 'orange', 'mint', 'blue', 'red'], fC = gui.addFolder('Colours');
+let colT = 0; const recolour = () => { clearTimeout(colT); colT = setTimeout(() => { for (const k in heads) { scene.remove(heads[k].root); delete heads[k]; } window.dispatchEvent(new Event('colours')); save(); }, 60); };
+fC.add(DIALS, 'palette', Object.keys(PALETTES)).name('colour profile').onChange(v => { Object.assign(DIALS, PALETTES[v]); fC.controllersRecursive().forEach(c => c.updateDisplay()); recolour(); });
+fC.domElement.querySelector('.children').insertAdjacentHTML('afterbegin', '<div style="padding:4px 8px 6px;font-size:11px;line-height:1.4;color:#999">fill: head, cone, path, tag type<br>stroke: eyes, outline, bowl, tag box</div>');
+for (const k of COLS) for (const t of ['f', 's']) fC.addColor(DIALS, 'col_' + k + '_' + t).name(k + (t === 'f' ? ' fill' : ' stroke')).onChange(recolour);
+// a ↺ on every dial puts just that one back to its default; each folder also gets "reset this folder"
+const resetCtl = (c) => { if (c.property in DEFAULTS) c.setValue(DEFAULTS[c.property]); };
+for (const c of gui.controllersRecursive()) {
+  const b = document.createElement('button'); b.textContent = '↺'; b.title = 'back to default'; b.className = 'dk-reset';
+  b.onclick = (e) => { e.stopPropagation(); resetCtl(c); }; c.domElement.appendChild(b);
+}
+for (const f of gui.foldersRecursive()) f.add({ r: () => f.controllersRecursive().forEach(resetCtl) }, 'r').name('↺ reset this folder');
+{ const st = document.createElement('style'); st.textContent = '.lil-gui .controller button.dk-reset{flex:none!important;margin-left:4px;width:20px!important;min-width:20px;height:20px;padding:0;border:0;border-radius:3px;background:#2a2a2a;color:#bbb;cursor:pointer;font-size:12px;line-height:20px}.lil-gui .controller button.dk-reset:hover{background:#444;color:#fff}'; document.head.appendChild(st); }
+gui.add({ copy: () => { const t = JSON.stringify(DIALS, null, 2); navigator.clipboard?.writeText(t).catch(() => {}); console.log(t); } }, 'copy').name('copy settings');
+gui.add({ reset: () => { Object.assign(DIALS, DEFAULTS); gui.controllersRecursive().forEach(c => c.updateDisplay()); applyGeometry(); applyType(); window.dispatchEvent(new Event('colours')); save(); } }, 'reset').name('↺ reset everything to defaults');
+addEventListener('keydown', (e) => { if ((e.key === 'd' || e.key === 'D') && !e.metaKey && !e.ctrlKey) gui.show(gui._hidden); });
+applyGeometry(); window.dispatchEvent(new Event('colours'));   // the main script ran first, so hand it the saved / default colours now
+window.HEAD3D = { draw: drawHead3D, iconPath, heightOf, get OUTLINE_FRAC() { return outlineFrac(); } };
+</script>
+<script>
+const SHAPES = {"green": {"d": "M1473.17 417.982C1472.94 394.518 1477.91 372.219 1487 352.186C1466.44 344.468 1447.2 332.222 1430.82 315.461C1430.13 314.752 1429.43 314.05 1428.72 313.354C1412.01 296.922 1399.8 277.622 1392.11 257C1372.14 266.12 1349.91 271.106 1326.51 270.876C1326.01 270.871 1325.51 270.869 1325 270.869C1324.49 270.869 1323.99 270.871 1323.49 270.876C1300.1 271.106 1277.86 266.12 1257.89 257C1250.2 277.622 1237.99 296.922 1221.28 313.354C1220.96 313.672 1220.64 313.991 1220.32 314.312C1219.94 314.693 1219.56 315.076 1219.18 315.461C1202.8 332.222 1183.56 344.468 1163 352.186C1172.09 372.219 1177.06 394.518 1176.83 417.982C1176.83 418.487 1176.83 418.993 1176.83 419.501C1176.83 420.008 1176.83 420.514 1176.83 421.02C1177.06 444.483 1172.09 466.781 1163 486.814C1183.56 494.532 1202.8 506.779 1219.18 523.54C1219.87 524.25 1220.57 524.953 1221.28 525.648C1237.99 542.08 1250.2 561.379 1257.89 582C1277.86 572.88 1300.1 567.895 1323.49 568.125C1323.99 568.13 1324.49 568.132 1325 568.132C1325.51 568.132 1326.01 568.13 1326.51 568.125C1349.91 567.895 1372.14 572.88 1392.11 582C1399.8 561.379 1412.01 542.08 1428.72 525.648C1429.43 524.953 1430.13 524.25 1430.82 523.54C1447.2 506.78 1466.44 494.532 1487 486.814C1477.91 466.781 1472.94 444.482 1473.17 421.02C1473.17 420.514 1473.17 420.008 1473.17 419.501C1473.17 419.154 1473.17 418.807 1473.17 418.461C1473.17 418.301 1473.17 418.141 1473.17 417.982Z", "stars": ["M1238.47 339.276C1241.05 332.311 1250.9 332.311 1253.47 339.276L1254.58 342.265C1255.39 344.455 1257.12 346.181 1259.31 346.991L1262.3 348.097C1269.26 350.674 1269.26 360.526 1262.3 363.103L1259.31 364.209C1257.12 365.019 1255.39 366.745 1254.58 368.935L1253.47 371.924C1250.9 378.889 1241.05 378.889 1238.47 371.924L1237.36 368.935C1236.55 366.745 1234.83 365.019 1232.64 364.209L1229.65 363.103C1222.68 360.526 1222.68 350.674 1229.65 348.097L1232.64 346.991C1234.83 346.181 1236.55 344.454 1237.36 342.265L1238.47 339.276Z", "M1292.47 339.276C1295.05 332.311 1304.9 332.311 1307.47 339.276L1308.58 342.265C1309.39 344.455 1311.12 346.181 1313.31 346.991L1316.3 348.097C1323.26 350.674 1323.26 360.526 1316.3 363.103L1313.31 364.209C1311.12 365.019 1309.39 366.745 1308.58 368.935L1307.47 371.924C1304.9 378.889 1295.05 378.889 1292.47 371.924L1291.36 368.935C1290.55 366.745 1288.83 365.019 1286.64 364.209L1283.65 363.103C1276.68 360.526 1276.68 350.674 1283.65 348.097L1286.64 346.991C1288.83 346.181 1290.55 344.454 1291.36 342.265L1292.47 339.276Z"]}, "cyan": {"d": "M1009.89 431.835C1009.68 412.579 1020.26 395.717 1036 386.999C1018.03 387.307 1000.47 378.009 991.024 361.255C990.485 360.298 989.934 359.348 989.374 358.404C979.529 341.819 980.253 321.891 989.55 306.449C974.108 315.746 954.181 316.472 937.597 306.627C936.653 306.067 935.702 305.516 934.745 304.977C917.992 295.532 908.693 277.969 909.001 260.002C900.282 275.743 883.422 286.319 864.166 286.107C863.612 286.101 863.056 286.098 862.5 286.098C861.943 286.098 861.388 286.101 860.833 286.107C841.577 286.319 824.716 275.742 815.997 260C816.306 277.968 807.008 295.532 790.254 304.977C789.297 305.516 788.346 306.067 787.403 306.627C770.817 316.472 750.89 315.748 735.448 306.45C744.745 321.892 745.471 341.819 735.625 358.404C735.065 359.348 734.515 360.298 733.975 361.255C724.53 378.009 706.967 387.307 689 386.999C704.742 395.717 715.318 412.579 715.106 431.835C715.1 432.389 715.097 432.945 715.097 433.501C715.097 434.058 715.1 434.613 715.106 435.168C715.318 454.423 704.741 471.284 689 480.003C706.967 479.695 724.53 488.994 733.975 505.747C734.515 506.704 735.065 507.654 735.625 508.598C745.47 525.183 744.746 545.11 735.449 560.552C750.891 551.255 770.818 550.53 787.403 560.375C788.346 560.936 789.297 561.486 790.254 562.026C807.007 571.47 816.305 589.033 815.997 607C824.716 591.259 841.578 580.683 860.833 580.895C861.388 580.901 861.943 580.904 862.5 580.904C863.056 580.904 863.611 580.901 864.166 580.895C883.421 580.683 900.282 591.259 909.001 607C908.694 589.033 917.992 571.47 934.745 562.026C935.702 561.486 936.653 560.936 937.597 560.375C954.181 550.53 974.109 551.255 989.551 560.551C980.254 545.109 979.529 525.183 989.374 508.598C989.934 507.654 990.485 506.704 991.024 505.747C1000.47 488.994 1018.03 479.695 1036 480.003C1020.26 471.284 1009.68 454.423 1009.89 435.168C1009.9 434.613 1009.9 434.058 1009.9 433.501C1009.9 432.945 1009.9 432.389 1009.89 431.835Z", "stars": ["M830.468 342.276C833.046 335.311 842.897 335.311 845.474 342.276L846.58 345.265C847.39 347.455 849.117 349.181 851.306 349.991L854.295 351.097C861.26 353.674 861.26 363.526 854.295 366.103L851.306 367.209C849.117 368.019 847.39 369.745 846.58 371.935L845.474 374.924C842.897 381.889 833.046 381.889 830.468 374.924L829.362 371.935C828.552 369.745 826.826 368.019 824.636 367.209L821.647 366.103C814.682 363.526 814.682 353.674 821.647 351.097L824.636 349.991C826.826 349.181 828.552 347.454 829.362 345.265L830.468 342.276Z", "M884.468 342.276C887.046 335.311 896.897 335.311 899.474 342.276L900.58 345.265C901.39 347.455 903.117 349.181 905.306 349.991L908.295 351.097C915.26 353.674 915.26 363.526 908.295 366.103L905.306 367.209C903.117 368.019 901.39 369.745 900.58 371.935L899.474 374.924C896.897 381.889 887.046 381.889 884.468 374.924L883.362 371.935C882.552 369.745 880.826 368.019 878.636 367.209L875.647 366.103C868.682 363.526 868.682 353.674 875.647 351.097L878.636 349.991C880.826 349.181 882.552 347.454 883.362 345.265L884.468 342.276Z"]}, "yellow": {"d": "M1912.2 294.798C1915.61 298.204 1918.87 301.721 1921.99 305.341L1922.61 306.066L1923.41 307.018C1953.27 343.002 1952.55 394.481 1923.81 429.501C1952.81 464.832 1953.28 516.914 1922.61 552.937C1919.31 556.812 1915.84 560.571 1912.2 564.205C1908.57 567.839 1904.81 571.308 1900.94 574.608C1864.91 605.285 1812.83 604.808 1777.5 575.81C1742.17 604.808 1690.09 605.285 1654.06 574.608C1650.19 571.308 1646.43 567.839 1642.8 564.205C1639.16 560.571 1635.69 556.812 1632.39 552.937C1601.72 516.914 1602.19 464.832 1631.19 429.501C1602.19 394.171 1601.72 342.089 1632.39 306.066C1635.69 302.191 1639.16 298.431 1642.8 294.798C1646.43 291.164 1650.19 287.695 1654.06 284.395L1655.02 283.594C1691 253.728 1742.48 254.449 1777.5 283.192C1812.83 254.194 1864.91 253.718 1900.94 284.395L1901.66 285.016C1905.28 288.129 1908.8 291.391 1912.2 294.798Z", "stars": ["M1776.46 348.276C1779.04 341.311 1788.89 341.311 1791.47 348.276L1792.58 351.265C1793.39 353.455 1795.11 355.181 1797.3 355.991L1800.29 357.097C1807.26 359.674 1807.26 369.526 1800.29 372.103L1797.3 373.209C1795.11 374.019 1793.39 375.745 1792.58 377.935L1791.47 380.924C1788.89 387.889 1779.04 387.889 1776.46 380.924L1775.36 377.935C1774.55 375.745 1772.82 374.019 1770.63 373.209L1767.64 372.103C1760.68 369.526 1760.68 359.674 1767.64 357.097L1770.63 355.991C1772.82 355.181 1774.55 353.454 1775.36 351.265L1776.46 348.276Z", "M1830.46 348.276C1833.04 341.311 1842.89 341.311 1845.47 348.276L1846.58 351.265C1847.39 353.455 1849.11 355.181 1851.3 355.991L1854.29 357.097C1861.26 359.674 1861.26 369.526 1854.29 372.103L1851.3 373.209C1849.11 374.019 1847.39 375.745 1846.58 377.935L1845.47 380.924C1842.89 387.889 1833.04 387.889 1830.46 380.924L1829.36 377.935C1828.55 375.745 1826.82 374.019 1824.63 373.209L1821.64 372.103C1814.68 369.526 1814.68 359.674 1821.64 357.097L1824.63 355.991C1826.82 355.181 1828.55 353.454 1829.36 351.265L1830.46 348.276Z"]}, "pink": {"d": "M394.048 265C380.266 267.565 366.054 268.91 351.528 268.907H351.473C336.947 268.909 322.735 267.565 308.953 265C298.383 274.029 286.849 282.232 274.383 289.442C274.368 289.451 274.352 289.459 274.336 289.468C261.719 296.771 248.695 302.741 235.431 307.431C230.741 320.695 224.771 333.719 217.468 346.336L217.442 346.383C210.232 358.849 202.029 370.383 193 380.953C195.565 394.735 196.91 408.948 196.907 423.474V423.53C196.91 438.055 195.565 452.266 193 466.048C202.03 476.618 210.232 488.153 217.442 500.619L217.468 500.666C224.771 513.283 230.741 526.307 235.431 539.57C248.695 544.26 261.719 550.231 274.336 557.535C274.352 557.544 274.368 557.551 274.383 557.56C286.849 564.77 298.383 572.972 308.953 582.001C322.735 579.436 336.948 578.093 351.474 578.095H351.53C366.055 578.093 380.266 579.436 394.048 582.001C404.618 572.972 416.153 564.77 428.619 557.56C428.635 557.551 428.651 557.544 428.666 557.535C441.283 550.231 454.306 544.26 467.57 539.57C472.26 526.306 478.231 513.283 485.535 500.666L485.56 500.619C492.77 488.154 500.972 476.618 510.001 466.048C507.436 452.266 506.093 438.054 506.095 423.528V423.473C506.093 408.947 507.436 394.735 510.001 380.953C500.972 370.384 492.77 358.849 485.56 346.383L485.535 346.336C478.231 333.719 472.26 320.695 467.57 307.431C454.307 302.741 441.283 296.771 428.666 289.468L428.652 289.46C428.641 289.454 428.63 289.449 428.619 289.442C416.153 282.232 404.618 274.03 394.048 265Z", "stars": ["M317.097 319.276C319.674 312.311 329.526 312.311 332.103 319.276L333.209 322.265C334.019 324.455 335.745 326.181 337.935 326.991L340.924 328.097C347.889 330.674 347.889 340.526 340.924 343.103L337.935 344.209C335.745 345.019 334.019 346.745 333.209 348.935L332.103 351.924C329.526 358.889 319.674 358.889 317.097 351.924L315.991 348.935C315.181 346.745 313.454 345.019 311.265 344.209L308.276 343.103C301.311 340.526 301.311 330.674 308.276 328.097L311.265 326.991C313.455 326.181 315.181 324.454 315.991 322.265L317.097 319.276Z", "M371.097 319.276C373.674 312.311 383.526 312.311 386.103 319.276L387.209 322.265C388.019 324.455 389.745 326.181 391.935 326.991L394.924 328.097C401.889 330.674 401.889 340.526 394.924 343.103L391.935 344.209C389.745 345.019 388.019 346.745 387.209 348.935L386.103 351.924C383.526 358.889 373.674 358.889 371.097 351.924L369.991 348.935C369.181 346.745 367.454 345.019 365.265 344.209L362.276 343.103C355.311 340.526 355.311 330.674 362.276 328.097L365.265 326.991C367.455 326.181 369.181 324.454 369.991 322.265L371.097 319.276Z"]}};
+
+/* ───────────── design constants (Figma px, frame 2176 × 1227) ───────────── */
+const FW = 2176, FH = 1227;
+const K  = 0.3036;                 // link-2 character → link-1 scene scale (413px hexagon → 125.4px)
+const LW = 4 * K;                  // 1.214px outline, as in the scene
+const CS = 0.75;                   // characters drawn at 3/4 size, scaled about their feet
+const C30 = Math.cos(Math.PI / 6); // true isometric: 30° ground axes
+const OX = FW / 2, OY = FH / 2;
+const S  = 72.4;                   // cube edge = one ground cell
+const SPHERE_R = 60.4;
+const CONE_R = 44, CONE_H = 100;
+
+// ── cone guys (v2 cast): Will's cel heads on a cone + rocking bowl, one head shape per colour ──
+const GUYS = {"green": {"shape": "hexagon", "f": "#cefc6f", "s": "#36e057", "aspect": 1.1}, "orange": {"shape": "star", "f": "#fcb66f", "s": "#e07836", "aspect": 1.0156}, "mint": {"shape": "triangle", "f": "#6ffcbb", "s": "#36e0a2", "aspect": 0.8656}, "blue": {"shape": "square", "f": "#6fbcfc", "s": "#3676e0", "aspect": 0.9781}, "red": {"shape": "circle", "f": "#fc6f80", "s": "#e0364e", "aspect": 1.0}};
+const HEAD_PAL = Object.fromEntries(Object.entries(GUYS).map(([k, g]) => [k, { f: g.f, s: g.s }]));
+const BODY_PAL = HEAD_PAL;
+// mouths, in link-2 coords (inset 2px from the drawn bbox so the 4px stroke lands on it)
+const MOUTH = {
+  pink:   [[325, 480], [325, 419], [378, 450]],
+  cyan:   [[834.4, 434.9], [891.6, 434.9], [863, 485]],
+  green:  [[1287.7, 484], [1259.1, 534.1], [1316.3, 534.1]],
+  yellow: [[1735.2, 411], [1735.2, 468.2], [1785.4, 439.6]],
+};
+
+const JOBS = ['RESEARCHING...', 'A/B TEST...', 'PULLING 3 NEW TRIALS...', 'SEARCHING...', 'CHECKING...', 'LOOKING...',
+  'READING 8 PAPERS...', 'CROSS-CHECKING...', 'SORTING RESULTS...', 'MAPPING OPTIONS...', 'SUMMARIZING...',
+  'COMPARING 5 TRIALS...', '12 STUDIES FOUND', 'FOUND 2 MATCHES', 'OK,'];
+// tag colours per set, as in the Figma tags
+const TAG = Object.fromEntries(Object.entries(GUYS).map(([k, g]) => [k, [g.s, g.f]]));   // dark tag, light type, in each guy's colours
+const SET = Object.fromEntries(Object.keys(GUYS).map(k => [k, k]));
+// dial-kit colours: mutate the shared palette objects in place so every guy, path and tag picks them up live
+function applyColours() {
+  const D = window.DIALS || {};
+  for (const k in GUYS) {
+    const f = D['col_' + k + '_f'] || GUYS[k].f, s = D['col_' + k + '_s'] || GUYS[k].s;
+    HEAD_PAL[k].f = f; HEAD_PAL[k].s = s; TAG[k][0] = s; TAG[k][1] = f;
+  }
+  document.querySelectorAll('.row[data-set]').forEach(el => { el.style.background = TAG[el.dataset.set][0]; el.firstChild.style.color = TAG[el.dataset.set][1]; });
+}
+applyColours(); addEventListener('colours', applyColours);
+
+/* ───────────── head geometry ───────────── */
+const HEADS = {};
+(function buildHeads() {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.style.cssText = 'position:absolute;width:0;height:0;visibility:hidden';
+  document.body.appendChild(svg);
+  for (const [k, v] of Object.entries(SHAPES)) {
+    const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    p.setAttribute('d', v.d); svg.appendChild(p);
+    const b = p.getBBox();
+    const starC = v.stars.map(d => { const q = document.createElementNS('http://www.w3.org/2000/svg', 'path'); q.setAttribute('d', d); svg.appendChild(q); const bb = q.getBBox(); return [bb.x + bb.width / 2, bb.y + bb.height / 2]; });
+    const m = new Path2D(); MOUTH[k].forEach(([x, y], i) => i ? m.lineTo(x, y) : m.moveTo(x, y)); m.closePath();
+    HEADS[k] = { d: v.d, box: [b.x, b.y, b.width, b.height], path: new Path2D(v.d), stars: v.stars.map(d => new Path2D(d)), starC, mouth: m,
+                 cx: b.x + b.width / 2, cy: b.y + b.height / 2, w: b.width * K, h: b.height * K };
+  }
+  svg.remove();
+})();
+
+const GHEADS = {};
+addEventListener('dials', () => { for (const h of Object.values(GHEADS)) h.real = false; });
+for (const [k, g] of Object.entries(GUYS)) { const w = HEADS.green.w * 1.15; GHEADS[k] = { guy: g, shape: g.shape, w, h: w * g.aspect }; }
+
+/* ───────────── projection ───────────── */
+const proj = (x, y, z = 0) => [OX + (x - y) * C30, OY + (x + y) * 0.5 - z];
+const unproj = (sx, sy) => { const a = (sx - OX) / C30, b = (sy - OY) * 2; return [(a + b) / 2, (b - a) / 2]; };
+
+/* ───────────── colour: opaque mix with the white ground ───────────── */
+const rgbCache = {};
+function hexRgb(h) { return rgbCache[h] || (rgbCache[h] = [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16))); }
+function onWhite(hex, a) {
+  const [r, g, b] = hexRgb(hex); a = Math.max(0, Math.min(1, a));
+  return `rgb(${255 + (r - 255) * a | 0},${255 + (g - 255) * a | 0},${255 + (b - 255) * a | 0})`;
+}
+
+/* ───────────── utilities ───────────── */
+const rand = (a, b) => a + Math.random() * (b - a);
+const pick = a => a[Math.floor(Math.random() * a.length)];
+const ease = t => 0.5 - 0.5 * Math.cos(Math.PI * t);
+function hull(pts) {
+  pts = pts.slice().sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const cr = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const lo = [], up = [];
+  for (const p of pts) { while (lo.length > 1 && cr(lo[lo.length - 2], lo[lo.length - 1], p) <= 0) lo.pop(); lo.push(p); }
+  for (let i = pts.length - 1; i >= 0; i--) { const p = pts[i]; while (up.length > 1 && cr(up[up.length - 2], up[up.length - 1], p) <= 0) up.pop(); up.push(p); }
+  return lo.slice(0, -1).concat(up.slice(0, -1));
+}
+function rot(v, a, th) { // Rodrigues, unit axis a
+  const c = Math.cos(th), s = Math.sin(th), d = a[0] * v[0] + a[1] * v[1] + a[2] * v[2];
+  const x = [a[1] * v[2] - a[2] * v[1], a[2] * v[0] - a[0] * v[2], a[0] * v[1] - a[1] * v[0]];
+  return [0, 1, 2].map(i => v[i] * c + x[i] * s + a[i] * d * (1 - c));
+}
+
+/* ───────────── state ───────────── */
+let hovered = null, mouse = null;
+let T = 0;
+/* ───────────── world bounds ───────────── */
+let view = { x0: 0, y0: 0, x1: FW, y1: FH };
+const TEXT_RECT = [420, 480, 1760, 790];   // logo + two-line headline, padded
+const CORNER_W = 0.3, CORNER_H = 0.34;      // each corner of the view (as a share of it) belongs to the peripheral paths
+function cornerRects() {
+  const w = view.x1 - view.x0, h = view.y1 - view.y0, cw = w * CORNER_W, ch = h * CORNER_H;
+  return [[view.x0, view.y0, view.x0 + cw, view.y0 + ch], [view.x1 - cw, view.y0, view.x1, view.y0 + ch],
+          [view.x0, view.y1 - ch, view.x0 + cw, view.y1], [view.x1 - cw, view.y1 - ch, view.x1, view.y1]];
+}
+const overlap = (r, q) => r[2] > q[0] && r[0] < q[2] && r[3] > q[1] && r[1] < q[3] ? Math.min(r[2] - q[0], q[2] - r[0], r[3] - q[1], q[3] - r[1]) : 0;
+function badness(i, j) {        // 0 = fine; otherwise how far off-screen / into the headline
+  const [px, py] = proj(i * S, j * S);
+  let b = Math.max(0, view.x0 + 150 - px) + Math.max(0, px - (view.x1 - 150)) + Math.max(0, view.y0 + 260 - py) + Math.max(0, py - (view.y1 - 70));
+  const r = [px - 80 * CS, py - 250 * CS, px + 80 * CS, py + 50 * CS];
+  b += overlap(r, TEXT_RECT);
+  for (const q of cornerRects()) b += overlap(r, q);         // tucked in toward the middle, clear of the corner paths
+  return b;
+}
+const cellOK = (i, j) => badness(i, j) === 0;
+
+/* ───────────── characters ───────────── */
+const chars = [];
+const DIRS = [[1, 0], [0, 1], [-1, 0], [0, -1]];
+const cheb = (r, i, j) => Math.max(Math.abs(r[0] - i), Math.abs(r[1] - j));
+const SPACE = 3;                // cells kept between characters while wandering
+function nearest(i, j, self) {
+  let m = Infinity;
+  for (const o of chars) if (o !== self) for (const r of o.res) m = Math.min(m, cheb(r, i, j));
+  return m;
+}
+// keep 3 cells apart; anyone already crowded (e.g. just out of the line) may move as long as it doesn't squeeze closer
+function free(i, j, self) {
+  const dn = nearest(i, j, self);
+  if (dn >= SPACE) return true;
+  if (!self) return false;
+  if (i === self.i && j === self.j) return true;            // shuffling within its own cell is always fine
+  const cur = nearest(self.i, self.j, self);
+  return cur >= SPACE ? false : dn > 0 && dn >= cur;
+}
+
+function makeChar(o) {
+  const c = {
+    body: o.body, bp: BODY_PAL[o.bp], head: GHEADS[o.hp], hp: HEAD_PAL[o.hp], set: o.hp, hit: null,
+    tasks: [0, 1, 2].map(() => pick(JOBS)), taskT: rand(0, 2), taskDur: rand(1.8, 3),
+    i: o.i, j: o.j, x: o.i * S, y: o.j * S, z: 0, dir: o.dir || pick(DIRS),
+    res: [[o.i, o.j]], anim: null, wait: rand(0, 1.2), queue: 0,
+    tilt: o.tilt ?? rand(-0.14, 0.14), face: 0, sz: 1, landT: -9, rollA: 0,
+    hx: null, hy: null, hvx: 0, hvy: 0, flop: null,
+  };
+  c.face = faceOf(c.dir);
+  c.hd = Math.atan2(c.dir[1], c.dir[0]); c.sp = 0; c.om = 0; c.beh = null; c.avoid = 0;
+  chars.push(c);
+  return c;
+}
+const faceOf = d => (d[0] - d[1]) * 1;   // +x / −y read rightwards on screen, +y / −x leftwards
+
+function plan(c) {
+  const dirs = DIRS.slice().sort(() => Math.random() - 0.5);
+  if (Math.random() < 0.55) dirs.unshift(c.dir);
+  const want = c.body === 'cone' ? 1 + (Math.random() * 3 | 0) : 2 + (Math.random() * 4 | 0);
+  for (const d of dirs) {
+    if (d[0] === -c.dir[0] && d[1] === -c.dir[1] && Math.random() < 0.7) continue; // rarely double back
+    let n = 0;
+    const lost = !cellOK(c.i, c.j);          // stranded off-screen (e.g. after a resize): head back in
+    const homeward = (i, j) => badness(i, j) < badness(c.i, c.j);
+    while (n < want) {
+      const i = c.i + d[0] * (n + 1), j = c.j + d[1] * (n + 1);
+      if (!(lost ? homeward(i, j) : cellOK(i, j)) || !free(i, j, c)) break;
+      n++;
+    }
+    if (n > 0) return { d, n };
+  }
+  return null;
+}
+
+function startMove(c) {
+  const p = plan(c);
+  if (!p) { c.wait = rand(0.4, 1); return; }
+  c.dir = p.d;
+  c.res = [];
+  for (let k = 0; k <= p.n; k++) c.res.push([c.i + p.d[0] * k, c.j + p.d[1] * k]);
+  if (c.body === 'sphere') c.anim = { t: 0, dur: (p.n * S) / 150 + 0.25, x0: c.x, y0: c.y, n: p.n };
+  else if (c.body === 'cube') c.anim = { t: 0, dur: (p.n * S) / 120 + 0.35, x0: c.x, y0: c.y, n: p.n };
+  else {
+    c.queue = p.n; nextStep(c);
+  }
+}
+function nextStep(c) {
+  const d = c.dir;
+  c.anim = { t: 0, dur: 0.62, x0: c.x, y0: c.y };
+  c.queue--;
+}
+
+function update(c, dt) {
+  const a = c.anim;
+  if (c.body === 'sphere') sphereMove(c, dt);
+  else if (!a) {
+    c.wait -= dt;
+    if (c.wait <= 0 && c !== hovered) startMove(c);
+  } else {
+    a.t += dt;
+    const u = Math.min(1, a.t / a.dur), d = c.dir;
+    if (c.body === 'cube') {
+      // roll: face to face in one continuous tumble, eased over the whole run (like the sphere)
+      const q = Math.PI / 2, phi = ease(u) * a.n * q;
+      const k = Math.min(a.n - 1, Math.floor(phi / q)), th = phi - k * q, h = S / 2;
+      const rise = h * (Math.SQRT2 * Math.sin(th + Math.PI / 4) - 1);
+      c.x = a.x0 + d[0] * k * S; c.y = a.y0 + d[1] * k * S;
+      c.flop = { dx: d[0], dy: d[1], th, sink: rise * 0.6 };   // sink most of the corner-lift: reads as rounded
+      c.rollA = phi;
+      if (u >= 1) { c.flop = null; c.x = a.x0 + d[0] * a.n * S; c.y = a.y0 + d[1] * a.n * S; c.i += d[0] * a.n; c.j += d[1] * a.n;
+        c.landT = T; c.anim = null; c.res = [[c.i, c.j]]; c.wait = rand(0.5, 2.2); }
+    } else if (c.body === 'cone') {
+      // hop: crouch → arc → squash on landing
+      const crouch = 0.22;
+      if (u < crouch) { c.sz = 1 - 0.2 * Math.sin(Math.PI * u / crouch); c.z = 0; }
+      else {
+        const v = (u - crouch) / (1 - crouch);
+        c.x = a.x0 + d[0] * S * ease(v); c.y = a.y0 + d[1] * S * ease(v);
+        c.z = 4 * 46 * v * (1 - v); c.sz = 1.1 - 0.1 * v;
+      }
+      if (u >= 1) { c.x = a.x0 + d[0] * S; c.y = a.y0 + d[1] * S; c.z = 0; c.i += d[0]; c.j += d[1];
+        c.landT = T; endStep(c); }
+    }
+  }
+  if (c.body === 'cone' && !c.anim) {               // landing squash settles
+    const t = T - c.landT; c.sz = (c.z > 0.5 ? 1.07 : 1) - 0.16 * Math.exp(-9 * t) * Math.cos(18 * t);
+  }
+  const ft = c.body === 'sphere' ? Math.max(-1, Math.min(1, (Math.cos(c.hd) - Math.sin(c.hd)) * 0.9)) : faceOf(c.dir);
+  c.face += (ft - c.face) * Math.min(1, dt * 7);
+  // always thinking: finish the current task, move on to another
+  c.taskT += dt;
+  if (c.taskT > c.taskDur) {
+    let next; do next = pick(JOBS); while (next === c.tasks[c.tasks.length - 1]);
+    c.tasks.push(next); if (c.tasks.length > 4) c.tasks.shift();
+    c.taskT = 0; c.taskDur = rand(1.8, 3); c.doneAt = T;
+  }
+}
+/* spheres don't use the grid: they steer — cruising arcs, S-swerves, loop-the-loops, little rests */
+function nextBeh(c) {
+  const r = Math.random(), sg = Math.random() < 0.5 ? -1 : 1;
+  if (r < 0.32) return { k: 'cruise', t: 0, dur: rand(1.2, 2.6), sp: rand(120, 175), om: sg * rand(0.2, 0.9) };
+  if (r < 0.62) return { k: 'swerve', t: 0, dur: rand(2, 3.6), sp: rand(140, 185), amp: rand(2.2, 3.2), f: rand(2.6, 3.6), ph: Math.random() * 6 };
+  if (r < 0.82) { const om = sg * rand(3, 4.2); return { k: 'loop', t: 0, dur: (2 * Math.PI / Math.abs(om)) * rand(0.85, 1.6), sp: rand(160, 200), om }; }
+  return { k: 'rest', t: 0, dur: rand(0.5, 1.4), sp: 0, om: 0 };
+}
+function sphereMove(c, dt) {
+  if (!c.beh || (c.beh.t += dt) > c.beh.dur) c.beh = nextBeh(c);
+  const b = c.beh;
+  let spT = b.sp, omT = b.k === 'swerve' ? b.amp * Math.sin(b.t * b.f + b.ph) : b.om;
+  if (c === hovered) spT = 0;
+  const lost = !cellOK(c.i, c.j);
+  const L = 150, clear = h => { const i = Math.round((c.x + Math.cos(h) * L) / S), j = Math.round((c.y + Math.sin(h) * L) / S); return (lost || cellOK(i, j)) && free(i, j, c); };
+  if (lost) {                     // off-screen or under the headline: curve toward wherever is clearer
+    let want = c.hd, best = Infinity;
+    for (let a = 0; a < 8; a++) { const h = a * Math.PI / 4, b2 = badness(Math.round((c.x + Math.cos(h) * L) / S), Math.round((c.y + Math.sin(h) * L) / S)); if (b2 < best) { best = b2; want = h; } }
+    const diff = Math.atan2(Math.sin(want - c.hd), Math.cos(want - c.hd));
+    omT = Math.sign(diff) * 2.8; spT = 150;
+  } else if (spT > 0 && !clear(c.hd)) {   // something ahead: bank away in a sweeping curve
+    if (!c.avoid) c.avoid = clear(c.hd + 0.9) ? 1 : clear(c.hd - 0.9) ? -1 : (Math.random() < 0.5 ? 1 : -1);
+    omT = 3.4 * c.avoid; spT *= 0.7;
+  } else c.avoid = 0;
+  const k = Math.min(1, dt * 2.2);
+  c.sp += (spT - c.sp) * k;
+  c.om += (omT - c.om) * Math.min(1, dt * 3.5);
+  c.hd += c.om * dt * Math.min(1, 0.2 + c.sp / 90);
+  const nx = c.x + Math.cos(c.hd) * c.sp * dt, ny = c.y + Math.sin(c.hd) * c.sp * dt;
+  const ni = Math.round(nx / S), nj = Math.round(ny / S);
+  if ((lost ? badness(ni, nj) <= badness(c.i, c.j) + 1 : cellOK(ni, nj)) && free(ni, nj, c)) {
+    c.rollA += Math.hypot(nx - c.x, ny - c.y) / SPHERE_R;
+    c.x = nx; c.y = ny; c.i = ni; c.j = nj; c.res = [[ni, nj]];
+  } else c.sp *= 0.6;
+}
+
+function endStep(c) {
+  c.anim = null;
+  if (c.queue > 0) { c.wait = 0; nextStep(c); }
+  else { c.res = [[c.i, c.j]]; c.wait = rand(0.4, 2); }
+}
+
+/* ───────────── bodies ───────────── */
+const CUBE_V = [[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]];
+const CUBE_F = [[[0,1,2,3],[0,0,-1]],[[4,5,6,7],[0,0,1]],[[0,1,5,4],[0,-1,0]],[[2,3,7,6],[0,1,0]],[[1,2,6,5],[1,0,0]],[[0,3,7,4],[-1,0,0]]];
+const VIEW = [1, 1, 1];
+
+/* body (Figma 1401:43): a ball in the set's light colour with a dark outline; the head (dark, light-outlined) sits on top.
+   Figma units, up from the ground; scaled so the heads keep their size. */
+const BALL = { r: 146.84, headH: 377 };
+let WF = 0;
+function drawWeeble(ctx, c) {
+  const [gx, gy] = proj(c.x, c.y, c.z || 0), lean = c.lean || 0, W = c.head.w;
+  const D = window.DIALS || { bowl: .458, coneHeight: .911, neck: .432 };
+  const r = W * D.bowl, ht = W * D.coneHeight, ery = r * 0.3, neck = W * D.neck;   // proportions from the 2D cone figures (dial kit)
+  const hp = c.hp, lw = window.HEAD3D ? W * HEAD3D.OUTLINE_FRAC : LW * 1.6;
+  if (window.DIALS && c.head.shape !== DIALS[c.set]) { c.head.shape = DIALS[c.set]; c.head.real = false; }
+  if (window.HEAD3D && !c.head.real) { c.head.h = HEAD3D.heightOf(c.head.shape) * W / 1.3; c.head.real = true; }
+  ctx.save(); ctx.translate(gx, gy); ctx.rotate(lean); ctx.lineJoin = 'round';
+  // bowl: dark half-sphere
+  ctx.fillStyle = hp.s; ctx.beginPath(); ctx.arc(0, -r, r, 0, Math.PI); ctx.closePath(); ctx.fill();
+  // cone + its rounded rim: light
+  const cone = new Path2D(); cone.moveTo(-r, -r); cone.lineTo(0, -r - ht); cone.lineTo(r, -r); cone.closePath();
+  ctx.fillStyle = hp.f; ctx.fill(cone); ctx.beginPath(); ctx.ellipse(0, -r, r, ery, 0, 0, Math.PI * 2); ctx.fill();
+  // soft shadow band where the head sits
+  ctx.save(); ctx.clip(cone); ctx.globalAlpha = 0.22; ctx.fillStyle = hp.s; ctx.beginPath();
+  ctx.ellipse(0, -r - neck + W * 0.03, W * 0.32, W * 0.08, 0, 0, Math.PI * 2); ctx.rect(-r, -r - ht, 2 * r, ht - neck + W * 0.03); ctx.fill('nonzero'); ctx.restore();
+  // outline: cone sides + bowl
+  ctx.strokeStyle = hp.s; ctx.lineWidth = lw; ctx.beginPath(); ctx.moveTo(-r, -r); ctx.lineTo(0, -r - ht); ctx.lineTo(r, -r); ctx.stroke();
+  ctx.beginPath(); ctx.arc(0, -r, r, 0, Math.PI); ctx.stroke();
+  ctx.restore();
+  const hc = r + neck + c.head.h / 2;        // head centre, rocking with the body
+  return { x: gx + Math.sin(lean) * hc, top: gy - Math.cos(lean) * hc + c.head.h / 2, overlap: 0 };
+}
+// rock forward with speed across the screen, and wobble back upright (an under-damped spring)
+function leanTo(c, fx, dt) {
+  if (dt > 0 && c.lfx != null) {
+    const tgt = Math.max(-0.28, Math.min(0.28, (fx - c.lfx) / dt * 0.0003));
+    c.lv = (c.lv || 0) + ((tgt - (c.lean || 0)) * 90 - (c.lv || 0) * 8) * dt;
+    c.lean = (c.lean || 0) + c.lv * dt;
+  }
+  c.lfx = fx;
+}
+function drawBody(ctx, c) {
+  if (c.body === 'sphere') return drawWeeble(ctx, c);
+  ctx.fillStyle = c.bp.f; ctx.strokeStyle = c.bp.s; ctx.lineWidth = LW; ctx.lineJoin = 'round';
+  if (c.body === 'cube') {
+    const h = S / 2, sk = c.flop ? c.flop.sink : 0, C0 = [c.x, c.y, h - sk];
+    let P = null, ax = null, th = 0;
+    if (c.flop) { P = [c.x + c.flop.dx * h, c.y + c.flop.dy * h, -sk]; ax = [-c.flop.dy, c.flop.dx, 0]; th = c.flop.th; }
+    if (c.R) {                                     // free tumble: rest the lowest corner near the ground, softened
+      const zmin = Math.min(...CUBE_V.map(v => app3(c.R, v.map(q => q * h))[2]));
+      C0[2] = h + (-zmin - h) * 0.4;
+    }
+    const tf = v => { if (c.R) { const r = app3(c.R, v); return [C0[0] + r[0], C0[1] + r[1], C0[2] + r[2]]; }
+      if (!P) return [C0[0] + v[0], C0[1] + v[1], C0[2] + v[2]];
+      const r = rot([C0[0] + v[0] - P[0], C0[1] + v[1] - P[1], C0[2] + v[2] - P[2]], ax, th); return [P[0] + r[0], P[1] + r[1], P[2] + r[2]]; };
+    const V = CUBE_V.map(v => proj(...tf(v.map(q => q * h))));
+    const vis = CUBE_F.filter(([, n]) => { const r = c.R ? app3(c.R, n) : P ? rot(n, ax, th) : n; return r[0] * VIEW[0] + r[1] * VIEW[1] + r[2] * VIEW[2] > 1e-6; });
+    for (const pass of ['fill', 'stroke']) for (const [idx] of vis) {
+      ctx.beginPath(); idx.forEach((k, i) => i ? ctx.lineTo(V[k][0], V[k][1]) : ctx.moveTo(V[k][0], V[k][1])); ctx.closePath(); ctx[pass]();
+    }
+    const cen = proj(...tf([0, 0, 0]));
+    return { x: cen[0], top: Math.min(...V.map(v => v[1])), overlap: 20 };
+  }
+  if (c.body === 'cone') {
+    const sz = c.sz, R = CONE_R / Math.sqrt(sz), H = CONE_H * sz, pts = [];
+    for (let k = 0; k < 48; k++) { const t = k / 48 * Math.PI * 2; pts.push(proj(c.x + R * Math.cos(t), c.y + R * Math.sin(t), c.z)); }
+    const apex = proj(c.x, c.y, c.z + H); pts.push(apex);
+    const hl = hull(pts);
+    ctx.beginPath(); hl.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.closePath(); ctx.fill(); ctx.stroke();
+    return { x: apex[0], top: apex[1], overlap: 22 };
+  }
+  const [sx, sy] = proj(c.x, c.y, SPHERE_R);
+  ctx.beginPath(); ctx.arc(sx, sy, SPHERE_R, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  return { x: sx, top: sy - SPHERE_R, overlap: 4 };
+}
+
+function drawHead(ctx, c, anchor, dt) {
+  const H = c.head, tx = anchor.x, ty = anchor.top - H.h / 2 + anchor.overlap;
+  if (c.hx === null || H.guy) { c.hx = tx; c.hy = ty; c.hvx = c.hvy = 0; }   // cone guys: head sits fixed on the neck (no spring)
+  // springy follow: the head lags, then settles
+  const k = 260, damp = 2 * Math.sqrt(k) * 0.5;
+  if (dt > 0 && !H.guy) {
+    c.hvx += ((tx - c.hx) * k - c.hvx * damp) * dt; c.hvy += ((ty - c.hy) * k - c.hvy * damp) * dt;
+    c.hx += c.hvx * dt; c.hy += c.hvy * dt;
+  }
+  const roll = c.body === 'cube' ? 0.1 * Math.sin(c.rollA) : c.body === 'sphere' ? 0.12 * Math.sin(c.rollA) - (c.om || 0) * c.sp * 0.0009 : 0;
+  const tilt = c.tilt + c.hvx * 0.0012 + roll;
+  const f = c.face;                       // −1 … 1 : 3/4 turn toward travel
+  if (H.guy) {
+    // turn the 3D head toward where it's going (screen-space heading: toward the viewer = face on, away = back of the head)
+    const dx = Math.cos(c.hd || 0), dy = Math.sin(c.hd || 0), goal = Math.atan2((dx - dy) * C30, (dx + dy) * 0.5);
+    if (c.yaw3 == null) c.yaw3 = goal;
+    let dA = goal - c.yaw3; dA = Math.atan2(Math.sin(dA), Math.cos(dA)); c.yaw3 += dA * Math.min(1, dt * (window.DIALS ? DIALS.turnSpeed : 3));
+    // stable head: upright, steady, only turning left / right
+    if (window.HEAD3D && ctx.globalAlpha > 0) HEAD3D.draw(ctx, H.shape, c.hp.f, c.hp.s, c.hx, c.hy, H.w, c.yaw3, 0, 0.1);
+  } else {
+  ctx.save();
+  ctx.translate(c.hx, c.hy); ctx.rotate(tilt); ctx.scale(K, K); ctx.translate(-H.cx, -H.cy);
+  ctx.fillStyle = c.hp.s; ctx.strokeStyle = c.hp.f; ctx.lineWidth = 5; ctx.lineJoin = 'miter';   // dark head, light outline
+  ctx.fill(H.path, 'evenodd'); ctx.stroke(H.path);
+  ctx.save(); ctx.clip(H.path, 'evenodd');
+  ctx.translate(H.cx + f * H.w / K * 0.17, 0); ctx.scale(1 - 0.28 * Math.abs(f), 1); ctx.translate(-H.cx, 0);
+  // eyes: little tipped-over peanuts — two round lobes pinched at the waist, where the sparkles used to sit
+  ctx.fillStyle = c.hp.f;
+  for (const [sx, sy] of H.starC) {
+    ctx.save(); ctx.translate(sx, sy + H.h / K * 0.24); ctx.rotate(0.85); ctx.scale(1.15, 1.15); ctx.beginPath();   // at the head's middle, as drawn
+    ctx.ellipse(-9.5, 0, 12.5, 11.5, 0, 0, Math.PI * 2); ctx.moveTo(22, 0); ctx.ellipse(9.5, 0, 12.5, 11.5, 0, 0, Math.PI * 2);
+    ctx.fill(); ctx.restore();
+  }
+  ctx.restore();
+  ctx.restore();
+  }
+  // drawn scaled about the feet: map back to stage px for hit-testing and the thought stack
+  const [fx, fy] = proj(c.x, c.y), L = (x, y) => [fx + (x - fx) * CS, fy + (y - fy) * CS];
+  const a = L(Math.min(anchor.x, c.hx) - 62, c.hy - H.h / 2), b = L(Math.max(anchor.x, c.hx) + 62, fy + 34);
+  c.hit = [a[0], a[1], b[0], b[1]];
+  c.top = L(c.hx, c.hy - H.h / 2);
+}
+
+/* ───────────── cast ───────────── */
+function cellAt(sx, sy) { const [x, y] = unproj(sx, sy); return [Math.round(x / S), Math.round(y / S)]; }
+function seed() {
+  // the four from the sketch, at their sketch positions and headings
+  const orig = [
+    { body: 'sphere', bp: 'red',    head: 'red',    hp: 'red',   at: [300, 376],  dir: [1, 0],  tilt: 0 },
+    { body: 'sphere', bp: 'blue',   head: 'blue',   hp: 'blue',   at: [1815, 252], dir: [0, 1],  tilt: -0.258 },
+    { body: 'sphere', bp: 'green',  head: 'green',  hp: 'green',  at: [1930, 1033], dir: [-1, 0], tilt: 0 },
+    { body: 'sphere', bp: 'orange', head: 'orange', hp: 'orange', at: [251, 1000], dir: [0, -1], tilt: 0.05 },
+  ];
+  for (const o of orig) {
+    let [i, j] = cellAt(...o.at);
+    for (let t = 0; t < 2000 && !(cellOK(i, j) && free(i, j, null)); t++) [i, j] = cellAt(rand(view.x0, view.x1), rand(view.y0, view.y1));
+    makeChar({ ...o, i, j });
+  }
+
+  // new ones: same primitives & colours, swapped around
+  const seen = new Set(orig.map(o => [o.body, o.bp, o.head, o.hp].join()));
+  const area = (view.x1 - view.x0) * (view.y1 - view.y0) / (FW * FH);
+  const extra = Math.max(5, Math.round(7 * area));
+  let tries = 0;
+  while (chars.length < 4 + extra && tries++ < 4000) {
+    // colour comes as a set: the body is the head's palette with fill and outline flipped
+    const hp = Object.keys(HEAD_PAL)[chars.length % Object.keys(HEAD_PAL).length];   // rotate sets so the mix stays even
+    const o = { body: 'sphere', bp: SET[hp], head: hp, hp };
+    const key = [o.body, o.bp, o.head, o.hp].join();
+    const [i, j] = cellAt(rand(view.x0, view.x1), rand(view.y0, view.y1));
+    if (!cellOK(i, j) || !free(i, j, null)) continue;
+    seen.add(key); makeChar({ ...o, i, j });
+  }
+}
+
+/* ───────────── frame ───────────── */
+const cv = document.getElementById('world'), ctx = cv.getContext('2d'), stage = document.getElementById('stage');
+let scale = 1, offX = 0, offY = 0, dpr = 1;
+function resize() {
+  const W = innerWidth, Hh = innerHeight;
+  dpr = Math.min(2, devicePixelRatio || 1);
+  cv.width = W * dpr; cv.height = Hh * dpr;
+  scale = Math.min(W / FW, Hh / FH);
+  offX = (W - FW * scale) / 2; offY = (Hh - FH * scale) / 2;
+  stage.style.transform = `translate(${offX}px,${offY}px) scale(${scale})`;
+  view = { x0: -offX / scale, y0: -offY / scale, x1: (W - offX) / scale, y1: (Hh - offY) / scale };
+}
+addEventListener('resize', resize);
+
+const now = () => performance.now() / 1000;
+
+function step(dt) {
+  T += dt;
+  for (const c of chars) update(c, dt);
+  updatePeri(dt);
+}
+function render(dt) {
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, cv.width, cv.height);
+  ctx.setTransform(dpr * scale, 0, 0, dpr * scale, dpr * offX, dpr * offY);
+  drawPeri(ctx);
+  const order = chars.concat(periRollers()).sort((a, b) => (a.x + a.y) - (b.x + b.y));
+  for (const c of order) {
+    const [fx, fy] = proj(c.x, c.y);
+    leanTo(c, fx, dt);
+    ctx.save(); ctx.translate(fx, fy); ctx.scale(CS, CS); ctx.translate(-fx, -fy);
+    const an = drawBody(ctx, c); drawHead(ctx, c, an, dt);
+    ctx.restore();
+  }
+  placeTag();
+}
+
+/* ───────────── hover: what is each one thinking? ───────────── */
+const th = document.getElementById('thought'), icon = th.querySelector('.icon'), iconPath = icon.querySelector('path');
+const TS = 0.78;   // thought stack drawn a bit smaller than the Figma tags
+const ROW_Y = [0, -41, -79, -117], ROW_O = [1, 0.4, 0.2, 0];   // current, then shifted up & greyed
+let rows = [], shown = null;   // rows: [{el, age}]
+cv.addEventListener('pointermove', e => { mouse = [(e.clientX - offX) / scale, (e.clientY - offY) / scale]; });
+cv.addEventListener('pointerleave', () => { mouse = null; });
+
+function makeRow(text, c, age) {
+  const el = document.createElement('div'); el.className = 'row'; el.dataset.set = c.set;
+  el.style.background = TAG[c.set][0];
+  const t = document.createElement('span'); t.className = 't'; t.style.color = TAG[c.set][1]; t.textContent = text;
+  el.appendChild(t); th.appendChild(el);
+  setRow(el, age); return { el, age, t };
+}
+const setRow = (el, age) => { el.style.transform = `translateY(${ROW_Y[Math.min(age, 3)]}px)`; el.style.opacity = ROW_O[Math.min(age, 3)]; };
+
+function showThoughts(c) {
+  rows.forEach(r => r.el.remove()); rows = [];
+  const H = c.head;
+  if (!H.guy) icon.setAttribute('viewBox', H.box.join(' '));
+  if (H.guy) { const ip = window.HEAD3D ? HEAD3D.iconPath(H.shape) : { d: '', box: [0, 0, 1, 1] }; icon.setAttribute('viewBox', ip.box.join(' ')); iconPath.setAttribute('d', ip.d); iconPath.setAttribute('fill', c.hp.s); }
+  else { iconPath.setAttribute('d', H.d); iconPath.setAttribute('fill', c.hp.s); }
+  const n = c.tasks.length;
+  for (let a = Math.min(2, n - 1); a >= 0; a--) rows.push(makeRow(c.tasks[n - 1 - a], c, a));
+  rows.forEach(r => r.el.style.transition = 'none'); th.offsetWidth; rows.forEach(r => r.el.style.transition = '');
+  shown = { c, doneAt: c.doneAt };
+}
+
+function advanceThoughts(c) {   // task done: everything shifts up and greys; the new one types in
+  for (const r of rows) { r.age++; setRow(r.el, r.age); }
+  setTimeout(() => { rows = rows.filter(r => { if (r.age > 2) { r.el.remove(); return false; } return true; }); }, 520);
+  const text = c.tasks[c.tasks.length - 1];
+  const r = makeRow('', c, 0);
+  r.el.style.transition = 'none'; r.el.style.transform = 'translateY(14px)'; r.el.style.opacity = 0; r.el.offsetWidth;
+  r.el.style.transition = ''; setRow(r.el, 0);
+  rows.push(r);
+  let i = 0; const type = () => { if (!r.el.isConnected) return; r.t.textContent = text.slice(0, ++i); if (i < text.length) setTimeout(type, 28); };
+  type();
+}
+
+function placeTag() {
+  let hit = null;
+  if (mouse) {   // front-most character under the pointer
+    const order = chars.slice().sort((a, b) => (b.x + b.y) - (a.x + a.y));
+    hit = order.find(c => c.hit && mouse[0] >= c.hit[0] && mouse[0] <= c.hit[2] && mouse[1] >= c.hit[1] && mouse[1] <= c.hit[3]) || null;
+  }
+  if (hit !== hovered) {
+    hovered = hit;
+    cv.classList.toggle('hot', !!hit);
+    th.classList.toggle('on', !!hit);
+    if (hit) showThoughts(hit);
+  }
+  if (!hovered) return;
+  const c = hovered;
+  if (c.doneAt !== shown.doneAt) { shown.doneAt = c.doneAt; advanceThoughts(c); }
+  // centre the current row (icon + tag) over the head
+  const cur = rows.find(r => r.age === 0), w = 42 + (cur ? cur.el.offsetWidth : 0);
+  th.style.transform = `translate(${c.top[0] - w * TS / 2}px, ${c.top[1] - 28 * TS - 12}px) scale(${TS})`;
+  // the icon thinks: slow turn, a nervous wobble, a breath — and a pop when a task lands
+  const t = performance.now() / 1000, pop = c.doneAt !== undefined ? Math.exp(-(T - c.doneAt) * 7) : 0;
+  const ang = t * 55 + Math.sin(t * 9) * 7, sc = 1 + 0.07 * Math.sin(t * 4.6) + 0.35 * pop, bob = Math.sin(t * 3.1) * 1.5 - 4 * pop;
+  icon.style.transform = `translateY(${bob}px) rotate(${ang}deg) scale(${sc})`;
+}
+
+/* ───────────── ribbons: flat paths on the ground, drawn on and off ───────────── */
+// route: [[a, b], [a, b, r], …, [a, b]] in ground units; interior points carry their corner radius
+function buildPath(route, step = 4) {
+  const pts = [[route[0][0], route[0][1]]];
+  let cur = pts[0];
+  const lineTo = (a, b) => { const L = Math.hypot(b[0] - a[0], b[1] - a[1]), n = Math.max(1, Math.ceil(L / step));
+    for (let k = 1; k <= n; k++) pts.push([a[0] + (b[0] - a[0]) * k / n, a[1] + (b[1] - a[1]) * k / n]); };
+  for (let i = 1; i < route.length; i++) {
+    const B = route[i];
+    if (i === route.length - 1 || !B[2]) { lineTo(cur, B); cur = [B[0], B[1]]; continue; }
+    const C = route[i + 1], r = B[2];
+    const l1 = Math.hypot(B[0] - cur[0], B[1] - cur[1]), l2 = Math.hypot(C[0] - B[0], C[1] - B[1]);
+    const a = [(B[0] - cur[0]) / l1, (B[1] - cur[1]) / l1], b = [(C[0] - B[0]) / l2, (C[1] - B[1]) / l2];
+    const th = Math.acos(Math.max(-1, Math.min(1, a[0] * b[0] + a[1] * b[1]))), t = r * Math.tan(th / 2);
+    const p1 = [B[0] - a[0] * t, B[1] - a[1] * t], p2 = [B[0] + b[0] * t, B[1] + b[1] * t];
+    lineTo(cur, p1);
+    const n = (a[0] * b[1] - a[1] * b[0]) > 0 ? [-a[1], a[0]] : [a[1], -a[0]], O = [p1[0] + n[0] * r, p1[1] + n[1] * r];
+    const a0 = Math.atan2(p1[1] - O[1], p1[0] - O[0]); let da = Math.atan2(p2[1] - O[1], p2[0] - O[0]) - a0;
+    while (da > Math.PI) da -= 2 * Math.PI; while (da < -Math.PI) da += 2 * Math.PI;
+    const m = Math.max(2, Math.ceil(Math.abs(da) * r / step));
+    for (let k = 1; k <= m; k++) { const q = a0 + da * k / m; pts.push([O[0] + r * Math.cos(q), O[1] + r * Math.sin(q)]); }
+    cur = p2;
+  }
+  const cum = [0], nrm = [];
+  for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+  for (let i = 0; i < pts.length; i++) {
+    const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)], L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+    nrm.push([-(b[1] - a[1]) / L, (b[0] - a[0]) / L]);
+  }
+  return { pts, cum, nrm, len: cum[cum.length - 1] };
+}
+function pathIndex(p, s) { let lo = 0, hi = p.cum.length - 1; while (hi - lo > 1) { const m = (lo + hi) >> 1; if (p.cum[m] <= s) lo = m; else hi = m; } return lo; }
+function pathSample(p, s) {
+  s = Math.max(0, Math.min(p.len, s));
+  const i = pathIndex(p, s), j = Math.min(p.pts.length - 1, i + 1), u = (s - p.cum[i]) / Math.max(1e-6, p.cum[j] - p.cum[i]);
+  const A = p.pts[i], B = p.pts[j], na = p.nrm[i], nb = p.nrm[j];
+  return { pt: [A[0] + (B[0] - A[0]) * u, A[1] + (B[1] - A[1]) * u], n: [na[0] + (nb[0] - na[0]) * u, na[1] + (nb[1] - na[1]) * u] };
+}
+// the stretch [s0, s1] of a ribbon `w` wide, through projection P (ground → screen), with round ends
+function drawRibbon(g, p, s0, s1, w, P) {
+  if (s1 - s0 < 0.5) return;
+  const L = [], R = [], h = w / 2;
+  const add = (pt, n) => { L.push(P(pt[0] + n[0] * h, pt[1] + n[1] * h)); R.push(P(pt[0] - n[0] * h, pt[1] - n[1] * h)); };
+  const a = pathSample(p, s0); add(a.pt, a.n);
+  for (let i = pathIndex(p, s0) + 1; i < p.pts.length && p.cum[i] < s1; i++) add(p.pts[i], p.nrm[i]);
+  const b = pathSample(p, s1); add(b.pt, b.n);
+  // half-round cap laid on the ground: from one side, round the end (dir ±1 = ahead / behind), to the other
+  const cap = (c, from, dir, out) => { const n = c.n, t = [n[1], -n[0]];
+    for (let k = 1; k < 12; k++) { const q = Math.PI * k / 12, cs = Math.cos(q) * from, sn = Math.sin(q) * dir;
+      out.push(P(c.pt[0] + (n[0] * cs + t[0] * sn) * h, c.pt[1] + (n[1] * cs + t[1] * sn) * h)); } };
+  const poly = L.slice(); cap(b, 1, 1, poly);
+  for (let i = R.length - 1; i >= 0; i--) poly.push(R[i]);
+  cap(a, -1, -1, poly);
+  g.beginPath(); poly.forEach((q, i) => i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1])); g.closePath();
+  g.fill();
+}
+const easeOutExpo = t => t >= 1 ? 1 : 1 - Math.pow(2, -10 * t);
+const easeInOutCubic = t => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+const easeOutBack = t => { const c = 1.9; return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2); };
+
+/* ───────────── scene 1: the intro (Figma 1378:3792, frame 2048 × 1044) ─────────────
+   The sketch's plane is a 2:1 isometric: ground u runs screen-down-right, v screen-down-left.
+   Ground units are the sketch image's own pixels (4096 wide), placed at x 38, y −102, scale 2544.3 / 4096. */
+const IW = 2048, IH = 1044, IK = 2544.306 / 4096;
+const iproj = (u, v) => [38 + IK * (2616 + u - v), -102 + IK * (19 + (u + v) / 2)];
+const RIB_W = 55;                  // ribbon width; neighbours sit on a 69 pitch (14 gap)
+// The centred headline sits in a keep-out box (frame px): glyphs 687–1361 × 430–640, widened for the ribbon and a
+// character's width at the sides and above, and for a character's height below (its head rises ~165 over the path).
+// In ground terms that box is a rectangle u0…u1 × v0…v1; the lanes run round its sides (one 69 pitch apart), as in the sketch.
+const iunproj = (X, Y) => { const x = (X - 38) / IK - 2616, y = (Y + 102) / IK - 19; return [(x + 2 * y) / 2, (2 * y - x) / 2]; };
+const INTRO = (() => {
+  const Z = [597, 370, 1451, 835], [u0] = iunproj(Z[0], Z[1]), [, v0] = iunproj(Z[2], Z[1]), [u1] = iunproj(Z[2], Z[3]), [, v1] = iunproj(Z[0], Z[3]);
+  const FAR = 6000, P = 69;
+  return [
+    // green, inner lane: in from the left, up over the headline, down its right side, then off to the bottom right
+    { set: 'green', route: [[u0, FAR], [u0, v0, 95], [u1, v0, 95], [u1, v0 + 700, 95], [FAR, v0 + 700]] },
+    // cyan, next lane out: in from the left, over the top, and straight on off the right edge
+    { set: 'blue',  route: [[u0 - P, FAR], [u0 - P, v0 - P, 95 + P], [FAR, v0 - P]] },
+    // pink: in from the bottom left, under the headline with a step down, and off the bottom
+    { set: 'red',   route: [[u0 + 150, FAR], [u0 + 150, v1 + P, 95], [u0 + 620, v1 + P, 95], [u0 + 620, v1 + P + 240, 95], [FAR, v1 + P + 240]] },
+  ];
+})();
+const DRAW_DUR = 2.4, ROLL_SPEED = 620;              // s to draw a path's visible stretch; stage px / s along it
+const icv = document.getElementById('intro'), ictx = icv.getContext('2d');
+let s1 = 1, o1x = 0, o1y = 0, introT = 0;
+// the stretch of a path [first, last arc length] that falls within box grown by m — everything else is off-screen
+function visRange(path, P, box, m) {
+  let a = null, b = null;
+  for (let i = 0; i < path.pts.length; i += 2) {
+    const [X, Y] = P(path.pts[i][0], path.pts[i][1]);
+    if (X > box[0] - m && X < box[2] + m && Y > box[1] - m && Y < box[3] + m) { if (a === null) a = path.cum[i]; b = path.cum[i]; }
+  }
+  return a === null ? [0, 0] : [a, b];
+}
+const introBox = () => [-o1x / s1, -o1y / s1, (innerWidth - o1x) / s1, (innerHeight - o1y) / s1];
+for (const p of INTRO) {
+  p.path = buildPath(p.route); p.state = 'wait'; p.t = 0; p.drawS = 0; p.tail = 0; p.roll = 0; p.rolled = false;
+  const c = makeChar({ body: 'sphere', bp: SET[p.set], head: p.set, hp: p.set, i: 0, j: 0, tilt: rand(-0.08, 0.08) });
+  chars.splice(chars.indexOf(c), 1);                 // not part of the wandering crowd
+  p.c = c;
+}
+function placeOn(p, s) {                             // put the roller at arc length s; roll it by the distance moved
+  const c = p.c, q = pathSample(p.path, s).pt, [X, Y] = iproj(q[0], q[1]), [x, y] = unproj(X, Y);
+  const d = c.fx == null ? 0 : Math.hypot(X - c.fx, Y - c.fy);
+  if (d > 1e-3) { c.hd = Math.atan2(y - c.y, x - c.x); c.rollA += d / (SPHERE_R * CS); }
+  c.sp = d; c.x = x; c.y = y; c.fx = X; c.fy = Y;
+}
+function startRoll(p) {                              // from just out of sight, along the path, until just out of sight again
+  const [a, b] = visRange(p.path, iproj, introBox(), 230);
+  p.state = 'roll'; p.s = a; p.s0 = a; p.s1 = b; p.roll = 0;
+  p.c.fx = null; p.c.hx = null; p.c.lfx = null; p.c.lean = 0; p.c.lv = 0; placeOn(p, a);
+}
+function updateIntro(dt) {
+  introT += dt;
+  const gSpeed = ROLL_SPEED / (IK * 1.118);          // a step along u or v covers √(1 + ¼) on screen
+  INTRO.forEach((p, k) => {
+    const prev = INTRO[k - 1];
+    // the character makes its path: the ribbon is laid down behind it as it rolls, lingers, then lifts away from the start
+    if (p.state === 'wait' && (k === 0 ? introT > 0.3 : prev.rolled || prev.state === 'roll' && prev.roll > 0.55)) { startRoll(p); p.tail = p.s0; p.drawS = p.s0; }
+    if (p.state === 'roll') {
+      p.s += gSpeed * dt; p.roll = (p.s - p.s0) / Math.max(1, p.s1 - p.s0);
+      placeOn(p, Math.min(p.s, p.s1));
+      p.drawS = Math.min(p.s, p.s1);
+      if (p.s >= p.s1) { p.state = 'linger'; p.rolled = true; p.hold = 1.4; }
+    } else if (p.state === 'linger' && (p.hold -= dt) <= 0) p.state = 'lift';
+    else if (p.state === 'lift') {
+      p.tail += gSpeed * 1.6 * dt;
+      if (p.tail >= p.drawS) { p.state = 'gone'; p.tail = p.drawS = 0; p.again = rand(1.5, 3.5); }
+    } else if (p.state === 'gone' && (p.again -= dt) <= 0) { p.state = 'wait'; p.rolled = false; introT = Math.max(introT, 1.2); if (k > 0) prev.rolled = true; }   // and round again
+    const c = p.c, ft = Math.max(-1, Math.min(1, (Math.cos(c.hd) - Math.sin(c.hd)) * 0.9));
+    c.face += (ft - c.face) * Math.min(1, dt * 7);
+  });
+}
+function renderIntro(dt) {
+  ictx.setTransform(1, 0, 0, 1, 0, 0);
+  ictx.fillStyle = '#fff'; ictx.fillRect(0, 0, icv.width, icv.height);
+  ictx.setTransform(dpr * s1, 0, 0, dpr * s1, dpr * o1x, dpr * o1y);
+  for (const p of INTRO) if (p.drawS > 0) { ictx.fillStyle = HEAD_PAL[p.set].f; drawRibbon(ictx, p.path, p.tail || 0, p.drawS, RIB_W, iproj); }
+  for (const p of INTRO.filter(p => p.state === 'roll').sort((a, b) => a.c.fy - b.c.fy)) {
+    const c = p.c; leanTo(c, c.fx, dt);
+    ictx.save(); ictx.translate(c.fx, c.fy); ictx.scale(CS, CS); ictx.translate(-c.fx, -c.fy);
+    const an = drawBody(ictx, c); drawHead(ictx, c, an, dt);
+    ictx.restore();
+  }
+}
+function resizeIntro() {
+  const W = innerWidth, H = innerHeight;
+  icv.width = W * dpr; icv.height = H * dpr;
+  s1 = Math.min(W / IW, H / IH); o1x = (W - IW * s1) / 2; o1y = (H - IH * s1) / 2;
+  document.getElementById('introStage').style.transform = `translate(${o1x}px,${o1y}px) scale(${s1})`;
+}
+addEventListener('resize', resizeIntro);
+
+/* ───────────── scene 2: paths drawn here and there round the edges ───────────── */
+const PERI = [], RIB2 = 40;                          // ribbon width in ground units (≈ the intro's on screen)
+let periNext = 0.6;
+const CORNERS = ['tl', 'tr', 'bl', 'br'];
+function periRegion(k) {
+  const w = view.x1 - view.x0, h = view.y1 - view.y0;
+  const x0 = k[1] === 'l' ? view.x0 - 120 : view.x1 - w * CORNER_W, x1 = k[1] === 'l' ? view.x0 + w * CORNER_W : view.x1 + 120;
+  const y0 = k[0] === 't' ? view.y0 - 120 : view.y1 - h * CORNER_H, y1 = k[0] === 't' ? view.y0 + h * CORNER_H : view.y1 + 120;
+  return [x0, y0, x1, y1];
+}
+// a path that comes in from off-screen near a corner, turns a few times within that corner, and leaves off-screen again
+function genPeri(k) {
+  const R = periRegion(k), V = [view.x0, view.y0, view.x1, view.y1];
+  const inView = ([x, y]) => x > V[0] && x < V[2] && y > V[1] && y < V[3];
+  const clearText = ([x, y]) => !(x > TEXT_RECT[0] - 50 && x < TEXT_RECT[2] + 50 && y > TEXT_RECT[1] - 50 && y < TEXT_RECT[3] + 50);
+  const inR = ([x, y]) => x >= R[0] && x <= R[2] && y >= R[1] && y <= R[3];
+  const legOK = (a, b) => { for (let t = 0; t <= 1; t += 0.02) { const q = proj(a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t); if (inView(q) && !(inR(q) && clearText(q))) return false; } return true; };
+  const out = [k[1] === 'l' ? -1 : 1, k[0] === 't' ? -1 : 1];            // screen-wards, toward this corner
+  const mid = [(V[0] + V[2]) / 2, (V[1] + V[3]) / 2];
+  const rotD = (d, a) => [d[0] * Math.cos(a) - d[1] * Math.sin(a), d[0] * Math.sin(a) + d[1] * Math.cos(a)];
+  const scrDir = (p, d) => { const a = proj(p[0] + d[0] * 100, p[1] + d[1] * 100), b = proj(p[0], p[1]), L = Math.hypot(a[0] - b[0], a[1] - b[1]); return [(a[0] - b[0]) / L, (a[1] - b[1]) / L]; };
+  for (let tries = 0; tries < 120; tries++) {
+    let sx, sy;
+    if (Math.random() < 0.5) { sx = k[1] === 'l' ? V[0] - 40 : V[2] + 40; sy = rand(R[1] + 80, R[3] - 80); }
+    else { sy = k[0] === 't' ? V[1] - 40 : V[3] + 40; sx = rand(R[0] + 80, R[2] - 80); }
+    let p = unproj(sx, sy);
+    const toMid = [mid[0] - sx, mid[1] - sy];
+    let dir = DIRS.slice().sort((a, b) => { const A = scrDir(p, a), B = scrDir(p, b); return (B[0] * toMid[0] + B[1] * toMid[1]) - (A[0] * toMid[0] + A[1] * toMid[1]); })[Math.random() < 0.75 ? 0 : 1];
+    const route = [[p[0] - dir[0] * 3000, p[1] - dir[1] * 3000]];         // begins far out of sight
+    let ok = true;
+    const corners = 1 + (Math.random() * 3 | 0);
+    for (let s = 0; s < corners; s++) {
+      const diag = Math.abs(dir[0]) > 0.01 && Math.abs(dir[1]) > 0.01;
+      const L = s === 0 ? rand(200, 420) : diag ? rand(110, 220) : rand(150, 340);
+      const q = [p[0] + dir[0] * L, p[1] + dir[1] * L];
+      if (!inView(proj(q[0], q[1])) || !legOK(p, q)) { ok = false; break; }    // every corner shows on screen
+      p = q;
+      const sg = Math.random() < 0.5 ? 1 : -1, turn = diag ? Math.PI / 4 * sg : Math.random() < 0.22 ? Math.PI / 4 * sg : Math.PI / 2 * sg;
+      route.push([p[0], p[1], Math.abs(turn) > 1 ? 62 : 70]);
+      dir = rotD(dir, turn);
+    }
+    if (!ok) continue;
+    // last leg must head back out of the corner, off-screen, and on well past it
+    const sd = scrDir(p, dir);
+    if (sd[0] * out[0] + sd[1] * out[1] < 0.35) continue;
+    const end = [p[0] + dir[0] * 3000, p[1] + dir[1] * 3000];
+    if (!legOK(p, end)) continue;
+    route.push(end);
+    // never let it cross itself
+    const bp = buildPath(route), pts = bp.pts; let crosses = false;
+    for (let i = 0; i < pts.length && !crosses; i += 6) for (let j = i + 6; j < pts.length; j += 6)
+      if (bp.cum[j] - bp.cum[i] > RIB2 * 5 && Math.hypot(pts[i][0] - pts[j][0], pts[i][1] - pts[j][1]) < RIB2 * 1.8) { crosses = true; break; }
+    if (crosses) continue;
+    return bp;
+  }
+  return null;
+}
+// each corner path brings its own character: drawn on, the character rolls in from off-screen, along it and off again,
+// then the path's tail sweeps after it. Nothing starts until the section is first reached.
+let periOn = false;
+function rollerFor(set) {
+  const c = makeChar({ body: 'sphere', bp: SET[set], head: set, hp: set, i: 0, j: 0, tilt: rand(-0.1, 0.1) });
+  chars.splice(chars.indexOf(c), 1);                 // rides its path; not part of the crowd
+  return c;
+}
+function updatePeri(dt) {
+  if (!periOn) return;
+  periNext -= dt;
+  if (periNext <= 0 && PERI.length < 3) {
+    const free = CORNERS.filter(k => !PERI.some(q => q.k === k)), k = pick(free), path = k && genPeri(k);
+    if (path) { const set = pick(Object.keys(HEAD_PAL)); PERI.push({ k, path, set, c: rollerFor(set), t: 0, tail: 0, draw: rand(1.8, 2.4), state: 'draw' }); }
+    periNext = rand(1.4, 2.8);
+  }
+  const V = [view.x0, view.y0, view.x1, view.y1];
+  for (let i = PERI.length - 1; i >= 0; i--) {
+    const q = PERI[i]; q.t += dt;
+    // the rider makes its path: the ribbon is laid behind it, lingers once it's gone, then lifts away from the start
+    if (q.state === 'draw') {
+      const [ra, rb] = visRange(q.path, proj, V, 230);
+      q.state = 'roll'; q.s = ra; q.s1 = rb; q.tail = ra; q.head = ra; q.c.px = null; q.c.hx = null; q.c.lfx = null; periPlace(q, ra);
+    } else if (q.state === 'roll') {
+      q.s += ROLL_SPEED * dt; periPlace(q, Math.min(q.s, q.s1)); q.head = Math.min(q.s, q.s1);
+      if (q.s >= q.s1) { q.state = 'linger'; q.hold = 1.6; }
+    } else if (q.state === 'linger' && (q.hold -= dt) <= 0) q.state = 'lift';
+    else if (q.state === 'lift') { q.tail += ROLL_SPEED * 1.6 * dt; if (q.tail >= q.head) { PERI.splice(i, 1); continue; } }
+    const c = q.c, ft = Math.max(-1, Math.min(1, (Math.cos(c.hd) - Math.sin(c.hd)) * 0.9));
+    c.face += (ft - c.face) * Math.min(1, dt * 7);
+  }
+}
+function periPlace(q, s) {                           // put a corner path's roller at arc length s (scene-2 ground)
+  const c = q.c, [x, y] = pathSample(q.path, s).pt;
+  const d = c.px == null ? 0 : Math.hypot(x - c.x, y - c.y);
+  if (d > 1e-3) { c.hd = Math.atan2(y - c.y, x - c.x); c.rollA += d / (SPHERE_R * CS); }
+  c.sp = d; c.x = x; c.y = y; c.px = 1;
+}
+const periRollers = () => PERI.filter(q => q.state === 'roll').map(q => q.c);
+function drawPeri(g) {
+  for (const q of PERI) { g.fillStyle = HEAD_PAL[q.set].f; drawRibbon(g, q.path, q.tail, q.head, RIB2, proj); }
+}
+
+/* ───────────── scroll: the intro slides away and the world comes up ───────────── */
+const scene1 = document.getElementById('scene1'), scene2 = document.getElementById('scene2');
+let page = 0, pT = 0, pFrom = 0, pAt = -9, lockUntil = 0;
+function goPage(n) { if (n === page || now() < lockUntil) return; pFrom = pT; page = n; pAt = now(); lockUntil = now() + 1.3; }
+addEventListener('wheel', e => { if (e.target.closest && e.target.closest('.lil-gui')) return;   // scrolling the dial kit doesn't flip the page
+  if (Math.abs(e.deltaY) > 3) goPage(e.deltaY > 0 ? 1 : 0); }, { passive: true });
+addEventListener('keydown', e => {
+  if (['ArrowDown', 'PageDown', ' '].includes(e.key)) goPage(1);
+  if (['ArrowUp', 'PageUp'].includes(e.key)) goPage(0);
+});
+let touchY = null;
+addEventListener('touchstart', e => { touchY = e.touches[0].clientY; }, { passive: true });
+addEventListener('touchend', e => { if (touchY === null) return; const dy = touchY - e.changedTouches[0].clientY; if (Math.abs(dy) > 40) goPage(dy > 0 ? 1 : 0); touchY = null; }, { passive: true });
+function updatePage() {
+  const u = Math.min(1, (now() - pAt) / 1.15);
+  pT = pFrom + (page - pFrom) * easeInOutCubic(u);
+  scene1.style.transform = `translateY(${-pT * 100}vh)`;
+  scene2.style.transform = `translateY(${(1 - pT) * 100}vh)`;
+  if (!periOn && pT >= 1) { periOn = true; periNext = 0.5; }   // first arrival: the corners start drawing now
+}
+
+resize(); resizeIntro(); seed();
+// warm up so the world opens mid-stride, traces already laid
+for (let k = 0; k < 60 * 7; k++) { step(1 / 60); for (const c of chars) { const an = bodyAnchor(c); springOnly(c, an, 1 / 60); } }
+function bodyAnchor(c) { ctx.save(); ctx.globalAlpha = 0; const an = drawBody(ctx, c); ctx.restore(); return an; }
+function springOnly(c, an, dt) { ctx.save(); ctx.globalAlpha = 0; drawHead(ctx, c, an, dt); ctx.restore(); }
+
+const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+if (still) for (let k = 0; k < 60 * 40; k++) updateIntro(1 / 60);   // no motion: open on the finished intro
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  if (!still) { step(dt); updateIntro(dt); }
+  updatePage();
+  renderIntro(still ? 0 : dt);
+  render(still ? 0 : dt);
+  requestAnimationFrame(frame);
+}
+document.fonts.ready.then(() => requestAnimationFrame(frame));
+</script>
+</body>
+</html>

@@ -1,18 +1,19 @@
 # Healthy Living Simulation
 
-A living, breathing map of little characters doing research. Each character is a soft 3D head riding inside a rolling wire ball. They travel colour-coded lines across a city that keeps growing, swap lines when they meet, and leave fading dot trails behind them.
+A living, breathing map of little characters doing research. The main characters are the **cone guys**: soft cel-shaded heads on a cone that rocks on a rounded bowl. They plan routes across a grid and lay down coloured ribbons as they go. They can also ride colour-coded subway lines across a city that keeps growing.
 
 The project started from [murmur.living](https://murmur.living): a city block where every shape follows its own movement rules and leaves a trail. The theme is health and cancer research. Each character is an "agent" doing work ("PULLING 3 NEW TRIALS"), and the map shows that work as motion.
 
-The repo holds two prototypes and a set of 3D characters:
+The repo holds three prototypes and a set of 3D characters:
 
 | Folder | What it is | Tech |
 | --- | --- | --- |
 | [`playground/`](playground/) | **The Living Block playground.** One HTML file with every world, cast, trail and camera as a switchable option. This is the main sandbox. | Plain HTML + three.js r160 (from a CDN) + lil-gui |
+| [`hero-sim/`](hero-sim/) | **The Healthier hero sim.** The website hero: cone guys make paths around the headline, with a frosted nav and a dial kit for every look setting. | Plain HTML, 2D canvas + three.js r160 for the heads, lil-gui |
 | [`assets/3d/`](assets/3d/) | **Cone guys:** the five characters as 3D `.glb` models, plus a small viewer. | glTF 2.0 |
 | [`scroll-pilot/`](scroll-pilot/) | **The scroll pilot.** A five-step scroll story: the hero head, then letter-shaped paths, then an aerial view, then the type fills in. | Next.js 15, React 19, three.js r170, opentype.js |
 
-![Subway world, after a few minutes of growth](docs/shots/v011-subway-grown.png)
+![Cone guys laying ribbon paths on flat ground](docs/shots/v012-cone-guys-paths.png)
 
 ---
 
@@ -41,6 +42,14 @@ npm run dev                         # http://localhost:3000
 
 `npm run build` writes a static site to `scroll-pilot/out/`.
 
+### Hero sim
+
+```bash
+npx serve hero-sim                  # then visit the printed URL
+```
+
+For the real type, copy the three ABC Diatype `.otf` files into `hero-sim/fonts/` (see the README there). Press **D** to show or hide the dial kit.
+
 ---
 
 ## The playground in depth
@@ -60,10 +69,10 @@ Your choices for world, cast, head look and trail are saved in `localStorage`, s
 | --- | --- | --- |
 | View | Isometric · Top-down · Fisheye | Camera angle and lens of the world view |
 | Version | Sketch · Night · Hero | Colour and lighting presets (see below) |
-| World | **Subway map** · Roads · Block | What the ground is made of |
+| World | **Subway map** · Roads · Block · Flat ground | What the ground is made of |
 | Heads | **Soft 3D** · Cel | Glossy plastic heads, or toon-shaded with an ink outline |
-| Cast | **Heads** · Blocks · Orbits | Which characters live in the world (Blocks and Orbits are earlier casts, saved for later) |
-| Trail | Lines + nodes · **Dots** · Stamps · Off | How the trails behind the characters are drawn |
+| Cast | **Cone guys** · Heads · Blocks · Orbits | Which characters live in the world (Blocks and Orbits are earlier casts, saved for later) |
+| Trail | Lines + nodes · Dots · Stamps · **Ribbon** · Off | How the trails behind the characters are drawn |
 | Street cam | Corner · High · Far | Framing of the right-hand camera |
 | Pause / Clear trails / Auto phrases | | Freeze the sim, wipe trails, or let characters pop up random status phrases (hovering a character always shows what it's doing) |
 
@@ -87,6 +96,9 @@ The same network drawn as flat, hand-jagged city roads over a patchwork of faint
 
 #### Block
 The original 3D city block of towers, sidewalks and streets. Characters wander freely between the buildings.
+
+#### Flat ground
+The Block world with every building and street taken away: one plain, open floor. This is the best stage for the cone guys' grid routes.
 
 #### The map keeps growing (Subway and Roads)
 The network is never a finished square. It is live state that keeps expanding:
@@ -118,7 +130,26 @@ Each stretch of line is generated once and cached, so existing streets never cha
 
 ### The cast
 
-#### Heads (default)
+#### Cone guys (default)
+The characters from the hero sim, in full 3D. Each guy is a cel-shaded head on a cone standing on a dark bowl, with one head shape per colour. They use the new default palette:
+
+| Colour | Head shape | Fill (head, cone, ribbon) | Stroke (eyes, bowl, outline) |
+| --- | --- | --- | --- |
+| Green | Hexagon | `#cefc6f` | `#458a00` |
+| Orange | Star | `#ffd53d` | `#dd5703` |
+| Mint | Triangle | `#c7feff` | `#3600b3` |
+| Blue | Square | `#cfccff` | `#5900ff` |
+| Red | Circle | `#ffc2ef` | `#ff00ae` |
+
+- **Weeble body:** the bowl rocks about its centre. The guy leans into speeding up, slowing down and turning, with a small wobble as it goes.
+- **Steady head:** the head stays fixed on the neck and only turns left and right, toward where the guy is heading and partly toward the viewer.
+- **Outline:** an even ink line in the stroke colour, drawn with a stencil so only the silhouette shows. The head and body each keep their own outline, so the chin is always outlined, and no thin lines show inside the heads.
+- **Grid routes (as in the hero sim):** each guy plans a whole route before it moves. Routes use long straight legs that are whole numbers of grid cells, 90° turns (now and then 45°) rounded off with a tight corner, and never cross themselves. Everyone rolls at the same steady speed. The ribbon lingers when the route ends, then lifts away from its start while the guy sets off again.
+- In the Subway and Roads worlds, cone guys ride the lines instead, and the lines repaint in the new palette. When a guy switches lines, its colour and head shape swap together with a little pop.
+
+**Tweak → Cone guys:** grid routes on/off, grid cell size, ribbon width.
+
+#### Heads
 These are the team's soft 3D heads, ported from `softHead()` in the d1 page of the healthier repo (`public/d1/yii.js`). There are five shapes (hexagon, star, triangle, square, circle). Each head is a light moulded colour with darker dot eyes of the same hue:
 
 | Colour | Head | Eyes / line |
@@ -152,6 +183,7 @@ These are heads in wire bubbles with a ghosted wire skeleton and a stem topped b
 
 All trails are a **rope**: a chain of points dragged behind each character that fades over time.
 
+- **Ribbon (hero sim):** a solid flat band in each guy's fill colour with round ends. It doesn't fade: it lingers, then lifts away from its start. This is the default for cone guys.
 - **Dots (murmur):** evenly spaced dots that fade away. This is the default for heads.
 - **Lines + nodes:** a fat line with node dots.
 - **Stamps:** the character's outline printed along its path.
@@ -205,11 +237,33 @@ A single scroll-snapped page with five steps, each about one screen tall:
 
 ---
 
+## The hero sim in depth
+
+![The hero sim with the new palette and the dial kit](docs/shots/hero-sim.png)
+
+[`hero-sim/index.html`](hero-sim/index.html) is the Healthier website hero. Cone guys roll in and make ribbon paths around the headline, show "thinking" tags with their head-shape icon, and wander the iso grid in the second scene. The world is drawn on a 2D canvas. Each head is rendered live in 3D by a small offscreen three.js scene and stamped into place, so the heads really turn.
+
+**Nav:** a white frosted bar runs edge to edge across the top, with 20px padding. It holds the black Healthier logo on the left, a black "Tell us about your case" pill, and a round menu button.
+
+**Dial kit** (press **D**). Every dial has a ↺ button to put it back to its default, each folder has "reset this folder", and there's a "reset everything" button at the bottom. Settings are remembered in the browser, "copy settings" copies them as JSON, and the panel scrolls.
+
+| Folder | What it controls |
+| --- | --- |
+| Eyes | Spacing, size, height |
+| Head | Size, thickness, puffiness, corner roundness, edge bevel, outline weight, turn speed |
+| Head shape per colour | Which head each colour wears |
+| Size per head shape | Fine size balance per shape (the square starts at 0.84 so it doesn't read big) |
+| Body | Bowl size, cone height, head height on the neck |
+| Type | Headline, logo and tags: font, weight, size, tracking, leading. It offers the three Diatype cuts plus Google variable fonts (the Diatype files have one weight each, so the browser fakes other weights on them) |
+| Colours | A fill and a stroke picker per guy, plus a **colour profile** switch between the new default palette and the original saturated one |
+
+---
+
 ## Cone guys (3D models)
 
 ![The five cone guys](docs/shots/cone-guys-3d.png)
 
-Five ready-made 3D characters live in [`assets/3d/`](assets/3d/) as `.glb` files. Each is a soft head sitting on a cone that stands on a rounded bowl, so it can rock like a weeble. There is one head shape per colour:
+Five ready-made 3D characters live in [`assets/3d/`](assets/3d/) as `.glb` files. They still use the original saturated palette. The new default palette is in the cone-guys cast and the hero sim. Each is a soft head sitting on a cone that stands on a rounded bowl, so it can rock like a weeble. There is one head shape per colour:
 
 | File | Head | Light (head, cone) | Dark (eyes, bowl) |
 | --- | --- | --- | --- |
@@ -244,6 +298,8 @@ new GLTFLoader().load('cone-star-orange.glb', (gltf) => {
 | --- | --- |
 | ![Subway world](docs/shots/v011-subway.png) Subway world, close up | ![Roads world grown](docs/shots/v011-roads-grown.png) Roads world after growing |
 | ![Roads at night](docs/shots/v010-roads-night.png) Roads world, Night version | ![Soft vs cel heads](docs/shots/heads-soft-vs-cel.png) Soft 3D vs Cel heads |
+| ![Cone guys from above](docs/shots/v012-cone-guys-top.png) Cone guys, top-down | ![Cone guys on the subway](docs/shots/v012-cone-guys-subway.png) Cone guys riding the subway lines |
+| ![Flat ground world](docs/shots/v012-flat.png) Flat ground world | |
 
 ## Roadmap
 

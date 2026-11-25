@@ -84,7 +84,7 @@ body.bare header, body.bare .chrome { display: none !important; }
 </style>
 
 <header>
-  <h1>Living Block <span class="ver" id="verLabel">v0.11</span></h1>
+  <h1>Living Block <span class="ver" id="verLabel">v0.12</span></h1>
   <div class="group" role="group" aria-label="World view">
     <span>View</span>
     <button id="btnIso" aria-pressed="true">Isometric</button>
@@ -94,9 +94,9 @@ body.bare header, body.bare .chrome { display: none !important; }
   <div class="group">
     <span>Version</span>
     <select id="preset" aria-label="Version">
-      <option value="sketch">v0.11 · Sketch (your colors)</option>
-      <option value="night">v0.11b · Night (murmur-ish)</option>
-      <option value="hero">v0.11c · Hero (stamp trails)</option>
+      <option value="sketch">v0.12 · Sketch (your colors)</option>
+      <option value="night">v0.12b · Night (murmur-ish)</option>
+      <option value="hero">v0.12c · Hero (stamp trails)</option>
     </select>
   </div>
   <div class="group">
@@ -105,6 +105,7 @@ body.bare header, body.bare .chrome { display: none !important; }
       <option value="subway">Subway map (45° lines)</option>
       <option value="roads">Roads (flat, colour routes)</option>
       <option value="block">Block (3D towers)</option>
+      <option value="flat">Flat ground (no buildings)</option>
     </select>
   </div>
   <div class="group" id="lookGroup">
@@ -115,6 +116,7 @@ body.bare header, body.bare .chrome { display: none !important; }
     <span>Cast</span>
     <select id="castSel" aria-label="Cast">
       <option value="blocks">Blocks (cube, cones, sphere) · saved</option>
+      <option value="coneguys">Cone guys (from the hero sim)</option>
       <option value="heads">Heads (3D, in wire balls)</option>
       <option value="orbits">Orbits (fluid + rope) · saved</option>
     </select>
@@ -125,6 +127,7 @@ body.bare header, body.bare .chrome { display: none !important; }
       <option value="lines">Lines + nodes</option>
       <option value="dots">Dots (murmur)</option>
       <option value="stamps">Stamps</option>
+      <option value="ribbon">Ribbon (hero sim)</option>
       <option value="off">Off (no trails)</option>
     </select>
   </div>
@@ -213,8 +216,8 @@ for (const c of Object.values(CHARS)) { c.cP = new THREE.Color(c.P); c.cS = new 
 
 // ---------- Tweakable settings (the "knobs") ----------
 const S = {
-  tempo: 1, trailStyle: 'lines', trailLife: 6, trailWidth: 2.4,
-  cubes: 6, cones: 8, spheres: 6, orbs: 10, heads: 16, headSize: 1.5, headFaceCam: 0.7, bubbleFill: 1, headWobble: 1, roadSpeed: 1, switchChance: 0.45, grow: true, growEvery: 4, growMax: 60, headsMax: 40, growCam: true, world: (() => { try { return localStorage.getItem('lb-world11') || 'subway'; } catch (e) { return 'subway'; } })(), ballLines: 2, arrowShare: 0.5, floatOften: 1, headLook: (() => { try { return localStorage.getItem('lb-look') || 'soft'; } catch (e) { return 'soft'; } })(), hill: false, rollShare: 0.6, cast: (() => { try { return localStorage.getItem('lb-cast08') || 'heads'; } catch (e) { return 'heads'; } })(),
+  tempo: 1, coneGrid: true, gridCell: 0.8, ribbonWidth: 0.42, trailStyle: 'lines', trailLife: 6, trailWidth: 2.4,
+  cubes: 6, cones: 8, spheres: 6, orbs: 10, heads: 16, headSize: 1.5, headFaceCam: 0.7, bubbleFill: 1, headWobble: 1, roadSpeed: 1, switchChance: 0.45, grow: true, growEvery: 4, growMax: 60, headsMax: 40, growCam: true, world: (() => { try { return localStorage.getItem('lb-world11') || 'subway'; } catch (e) { return 'subway'; } })(), ballLines: 2, arrowShare: 0.5, floatOften: 1, headLook: (() => { try { return localStorage.getItem('lb-look') || 'soft'; } catch (e) { return 'soft'; } })(), hill: false, rollShare: 0.6, cast: (() => { try { return localStorage.getItem('lb-cast12') || 'coneguys'; } catch (e) { return 'coneguys'; } })(),
   cubeBurst: 4, cubePause: 0.8,
   coneHopHeight: 0.55, coneTurn: 110,
   sphereSpeed: 1.1,
@@ -223,9 +226,9 @@ const S = {
   contribute: 1, moon: 0.12, lamps: 14, dots: 1, lattice: 1, charGlow: 0.35, bloom: 0.35, windowsLit: 0,
 };
 const PRESETS = {
-  sketch: { bg: '#cccccc', ground: '#cccccc', street: '#c3c3c3', building: '#e9e8e5', buildingEdge: '#9b9a98', outline: '#a9a9a9', trails: 'lines', points: false, label: 'v0.11' },
-  night:  { night: true, bg: '#060607', ground: '#0b0b0d', street: '#111114', building: '#141118', buildingEdge: '#2a2236', outline: '#3a3a40', trails: 'dots', points: false, label: 'v0.11b' },
-  hero:   { bg: '#ffffff', ground: '#ffffff', street: '#ffffff', building: '#ffffff', buildingEdge: '#d9d9d9', outline: '#d4d4d4', trails: 'stamps', points: false, label: 'v0.11c' },
+  sketch: { bg: '#cccccc', ground: '#cccccc', street: '#c3c3c3', building: '#e9e8e5', buildingEdge: '#9b9a98', outline: '#a9a9a9', trails: 'lines', points: false, label: 'v0.12' },
+  night:  { night: true, bg: '#060607', ground: '#0b0b0d', street: '#111114', building: '#141118', buildingEdge: '#2a2236', outline: '#3a3a40', trails: 'dots', points: false, label: 'v0.12b' },
+  hero:   { bg: '#ffffff', ground: '#ffffff', street: '#ffffff', building: '#ffffff', buildingEdge: '#d9d9d9', outline: '#d4d4d4', trails: 'stamps', points: false, label: 'v0.12c' },
 };
 let P = PRESETS.sketch;
 
@@ -347,7 +350,7 @@ const roadsWorld = () => S.world === 'roads' || S.world === 'subway';
 function isFree(x, z, r) {
   if (Math.abs(x) > HALF - r || Math.abs(z) > HALF - r) return false;
   if (S.hill && x * x + z * z < (HILL.R + r) * (HILL.R + r)) return false;      // the hill is only climbed on the paths
-  if (!roadsWorld()) for (const b of buildings) if (x > b.x - r && x < b.x + b.w + r && z > b.z - r && z < b.z + b.d + r) return false;
+  if (!roadsWorld() && S.world !== 'flat') for (const b of buildings) if (x > b.x - r && x < b.x + b.w + r && z > b.z - r && z < b.z + b.d + r) return false;
   return true;
 }
 const nearBuilding = (p, r) => !isFree(p.x, p.z, r) && Math.abs(p.x) < HALF - r && Math.abs(p.z) < HALF - r;
@@ -479,7 +482,7 @@ function updateTrails(now) {
   }
   trailGeo.attributes.instanceStart.data.needsUpdate = true; trailGeo.attributes.instanceColorStart.data.needsUpdate = true;
   trailGeo.instanceCount = n;
-  const off = S.trailStyle === 'off', dots = S.trailStyle === 'dots'; trailMesh.visible = !dots && !off; dotMesh.visible = dots && !off;
+  const off = S.trailStyle === 'off' || S.trailStyle === 'ribbon', dots = S.trailStyle === 'dots'; trailMesh.visible = !dots && !off; dotMesh.visible = dots && !off;
   if (dots && !off) updateDots(now);
 }
 
@@ -526,6 +529,50 @@ class Ribbon {                            // the sphere's gradient smear
   }
   clear() { this.pts = []; }
   dispose() { stampGroup.remove(this.mesh); this.geo.dispose(); }
+}
+// hero-sim ribbon: a solid flat band in the character's fill colour with round ends. It is laid down behind the guy,
+// lingers, then lifts away from its start (the tail catches up). No fading.
+const CAP = new THREE.CircleGeometry(0.5, 32).rotateX(-Math.PI / 2);
+class PathRibbon {
+  constructor(color) {
+    this.max = 600; this.pts = []; const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(this.max * 6), 3));
+    const idx = []; for (let i = 0; i < this.max - 1; i++) { const a = i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); } g.setIndex(idx); this.geo = g;
+    this.mat = new THREE.MeshBasicMaterial({ color, depthWrite: false, side: THREE.DoubleSide, toneMapped: false });
+    this.mesh = new THREE.Mesh(g, this.mat); this.mesh.frustumCulled = false; this.mesh.renderOrder = 4; this.mesh.position.y = 0.009;
+    this.caps = [new THREE.Mesh(CAP, this.mat), new THREE.Mesh(CAP, this.mat)]; this.caps.forEach(c => { c.renderOrder = 4; });
+    stampGroup.add(this.mesh, ...this.caps);
+  }
+  setColor(c) { this.mat.color.set(c); }
+  push(p, now) { const last = this.pts[this.pts.length - 1]; if (last && Math.hypot(last.p.x - p.x, last.p.z - p.z) < 0.05) { last.t = now; return; } this.pts.push({ p: new V3(p.x, 0, p.z), t: now }); if (this.pts.length > this.max) this.pts.shift(); }
+  update(now, life, w, on) {
+    while (this.pts.length > 2 && now - this.pts[1].t > life) this.pts.shift();   // the tail lifts away point by point
+    const n = this.pts.length, show = on && n > 1; this.mesh.visible = show; this.caps.forEach(c => c.visible = show); if (!show) return;
+    // slide the very last tail point toward the next one so the lift is smooth, not stepped
+    const t0 = this.pts[0], t1 = this.pts[1], age = now - t0.t;
+    const tail = age > life ? t0.p.clone().lerp(t1.p, Math.min(1, (age - life) / Math.max(1e-3, t1.t - t0.t))) : t0.p;
+    const pos = this.geo.attributes.position.array, h = w / 2;
+    for (let i = 0; i < n; i++) {
+      const q = i === 0 ? tail : this.pts[i].p, a = i === 0 ? tail : this.pts[i - 1].p, b = this.pts[Math.min(n - 1, i + 1)].p;
+      let dx = b.x - a.x, dz = b.z - a.z; const L = Math.hypot(dx, dz) || 1; dx /= L; dz /= L;
+      pos.set([q.x - dz * h, 0, q.z + dx * h, q.x + dz * h, 0, q.z - dx * h], i * 6);
+    }
+    this.geo.attributes.position.needsUpdate = true; this.geo.setDrawRange(0, (n - 1) * 6);
+    this.caps[0].position.set(tail.x, 0.009, tail.z); this.caps[1].position.set(this.pts[n - 1].p.x, 0.009, this.pts[n - 1].p.z); this.caps.forEach(c => c.scale.setScalar(w));
+  }
+  fromPath(path, s0, s1, w) {              // the stretch [s0, s1] of a planned path, as a flat band with round ends
+    const show = s1 - s0 > 0.02; this.mesh.visible = show; this.caps.forEach(c => c.visible = show); if (!show) return;
+    const pos = this.geo.attributes.position.array, h = w / 2, P = path.pts; let n = 0;
+    const put = (x, z, nx, nz) => { if (n >= this.max) return; pos.set([x + nx * h, 0, z + nz * h, x - nx * h, 0, z - nz * h], n * 6); n++; };
+    const a = pathAt(path, s0), b = pathAt(path, s1); put(a.x, a.z, a.nx, a.nz);
+    for (let i = pathIdx(path, s0) + 1; i < P.length && path.cum[i] < s1; i++) put(P[i][0], P[i][1], path.nrm[i][0], path.nrm[i][1]);
+    put(b.x, b.z, b.nx, b.nz);
+    this.geo.attributes.position.needsUpdate = true; this.geo.setDrawRange(0, (n - 1) * 6);
+    this.caps[0].position.set(a.x, 0.009, a.z); this.caps[1].position.set(b.x, 0.009, b.z); this.caps.forEach(c => c.scale.setScalar(w));
+  }
+  hide() { this.mesh.visible = false; this.caps.forEach(c => c.visible = false); }
+  clear() { this.pts = []; }
+  dispose() { stampGroup.remove(this.mesh, ...this.caps); this.geo.dispose(); this.mat.dispose(); }
 }
 function updateStamps(now) {
   const life = S.trailLife;
@@ -1182,7 +1229,7 @@ class Orb extends Agent {
   update(dt, now) {
     const pace = this.pace(dt), K = this.kind, t = now + this.phase;
     let step, before;
-    if (this.soft && roadsWorld()) { before = this.vel.clone(); step = this.roadStep(dt, pace); } else {
+    if (this.soft && roadsWorld()) { before = this.vel.clone(); step = this.roadStep(dt, pace); } else if (this.coneGuy && S.coneGrid) { before = this.vel.clone(); step = this.gridStep(dt, pace, now); } else {
     // 1. decide where it wants to go: a heading that wanders, with a personal flavour on top
     this.turnRate += (rand(-1, 1) * 2.2 - this.turnRate * 0.9) * dt;
     if (K.arcs) { this.arcT -= dt; if (this.arcT <= 0) { this.arcSign *= -1; this.arcT = rand(2.5, 6); } this.turnRate += (this.arcSign * 0.55 - this.turnRate) * dt * 0.8; }
@@ -1408,6 +1455,179 @@ const HEAD_CHARS = {   // sampled from Will's "A world of research on your case"
 for (const c of Object.values(HEAD_CHARS)) { c.face = c.move; c.cP = new THREE.Color(c.P); c.cS = new THREE.Color(c.S); }
 const HEAD_ROSTER = [['hexagon', 'green'], ['hexagon', 'orange'], ['star', 'mint'], ['hexagon', 'blue'], ['triangle', 'red'], ['square', 'green'],
   ['hexagon', 'mint'], ['circle', 'orange'], ['star', 'red'], ['hexagon', 'red'], ['triangle', 'blue'], ['square', 'orange'], ['circle', 'mint'], ['star', 'green'], ['hexagon', 'blue']];
+const headCast = () => S.cast === 'heads' || S.cast === 'coneguys';
+for (const [k, c] of Object.entries(HEAD_CHARS)) c.key = k;
+// ---------- CONE GUYS cast (v0.12): the characters from the hero sim (index.html), in Will's new default palette ----------
+// fill = head, cone, tag type · stroke = eyes, outline, bowl, trail. One head shape per colour, as in the hero sim.
+const CONE_PAL = { green: ['#cefc6f', '#458a00', 'hexagon'], orange: ['#ffd53d', '#dd5703', 'star'], mint: ['#c7feff', '#3600b3', 'triangle'],
+  blue: ['#cfccff', '#5900ff', 'square'], red: ['#ffc2ef', '#ff00ae', 'circle'] };
+const CONE_KEYS = Object.keys(CONE_PAL);
+const CONE_CHARS = Object.fromEntries(CONE_KEYS.map(k => { const [f, st, shape] = CONE_PAL[k], h = HEAD_CHARS[k];
+  return [k, { key: k, shape, head: f, eye: st, P: st, S: f, move: h.move, face: h.face, phrases: h.phrases, cP: new THREE.Color(st), cS: new THREE.Color(f) }]; }));
+const coneMatCache = {};
+function inkMat(color, w, ref = 1) {   // ref 1 = head, 2 = body: each part's ink only hides behind its own part, so the chin is always outlined
+   // inverted hull pushed out along the normals: an even outline all the way round
+  const key = color + w + ':' + ref; if (coneMatCache[key]) return coneMatCache[key];
+  const m = new THREE.MeshBasicMaterial({ color, side: THREE.BackSide, toneMapped: false,   // stencil: never drawn over a cone guy, so only the silhouette ring shows (no lines in the star's inner corners)
+    stencilWrite: true, stencilRef: ref, stencilFunc: THREE.NotEqualStencilFunc, stencilFail: THREE.KeepStencilOp, stencilZFail: THREE.KeepStencilOp, stencilZPass: THREE.KeepStencilOp });
+  m.onBeforeCompile = (sh) => { sh.vertexShader = sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>\n  transformed += normalize(normal) * ${w.toFixed(5)};`); };
+  m.customProgramCacheKey = () => 'ink' + w.toFixed(5);   // (stencil isn't part of the program)
+  return (coneMatCache[key] = m);
+}
+function coneMats(ch) {
+  const k = 'm' + ch.head + ch.eye; if (coneMatCache[k]) return coneMatCache[k];
+  const st = { stencilWrite: true, stencilRef: 1, stencilFunc: THREE.AlwaysStencilFunc, stencilZPass: THREE.ReplaceStencilOp }, sb = { ...st, stencilRef: 2 };
+  return (coneMatCache[k] = {
+    body: new THREE.MeshToonMaterial({ color: ch.head, gradientMap: TOON_STEPS, emissive: new THREE.Color(ch.head).multiplyScalar(.36), toneMapped: false, ...sb }),
+    fill: new THREE.MeshToonMaterial({ color: ch.head, gradientMap: TOON_STEPS, emissive: new THREE.Color(ch.head).multiplyScalar(.36), toneMapped: false, side: THREE.DoubleSide, ...st }),   // double-sided: hairline cracks in the tessellated head show its own fill, not the ink
+    dark: new THREE.MeshToonMaterial({ color: ch.eye, gradientMap: TOON_STEPS, emissive: new THREE.Color(ch.eye).multiplyScalar(.36), toneMapped: false, ...sb }),
+    eye: new THREE.MeshBasicMaterial({ color: ch.eye, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3, ...st }) });
+}
+const coneGeoCache = {};
+function coneGeos(u) {          // proportions from the hero sim / GLB export: bowl radius .5, cone 1.0 tall, head 1.09 wide, seated .62 up the cone
+  const k = u.toFixed(4); if (coneGeoCache[k]) return coneGeoCache[k];
+  const R = 0.5 * u, H = 1.0 * u, bowl = [];
+  for (let i = 0; i <= 24; i++) { const a = (i / 24) * Math.PI / 2; bowl.push(new THREE.Vector2(Math.max(1e-4, Math.sin(a) * R), -Math.cos(a) * R)); }
+  const cone = [new THREE.Vector2(R * 0.999, 0.0), new THREE.Vector2(1e-4, H)];   // bottom to top so the normals face out
+  const lid = [new THREE.Vector2(R, 0), new THREE.Vector2(1e-4, 0)];
+  return (coneGeoCache[k] = { R, H, bowl: new THREE.LatheGeometry(bowl, 48), cone: new THREE.LatheGeometry(cone, 48), lid: new THREE.LatheGeometry(lid, 48),
+    hullBody: (() => { const pts = []; for (let i = 0; i <= 24; i++) { const a = (i / 24) * Math.PI / 2; pts.push(new THREE.Vector2(Math.max(1e-4, Math.sin(a) * R), -Math.cos(a) * R)); }
+      pts.push(new THREE.Vector2(1e-4, H)); return new THREE.LatheGeometry(pts, 48); })() });
+}
+function makeConeGuy(key) { Orb.prototype.coneGuy = true; Orb.prototype.headKind = CONE_CHARS[key].shape; const o = new Orb(CONE_CHARS[key], 'bubble', true); Orb.prototype.coneGuy = false; return o; }
+Orb.prototype.coneGuy = false;
+Orb.prototype.buildCone = function () {
+  this.coneGuy = true;   // own flag: the prototype one is only set while constructing
+  this.outline.visible = false; this.u = this.R * 0.95; this.fly = 0; this.ballY = 0.06; this.rock = new V3(); this.rockV = new V3();
+  this.figure = new THREE.Group(); this.tilt.add(this.figure);
+  this.head = new THREE.Group(); this.yaw = new THREE.Group(); this.pitch = this.yaw; this.head.add(this.yaw); headGroup.add(this.head);
+  this.dressCone(); this.yawNow = Math.atan2(this.move.x, this.move.z); this.hasArrow = false;
+  const glow = new THREE.Mesh(shadowGeoGlow, new THREE.MeshBasicMaterial({ map: glowTex, color: this.ch.P, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false }));
+  glow.scale.setScalar(this.R * 3.2); glow.visible = false; headGroup.add(glow); this.glow = glow;
+  this.path = new PathRibbon(this.ch.head);
+  this.disposeFace = () => { headGroup.remove(glow); this.path.dispose(); GRID_RESET(this); };
+};
+Orb.prototype.dressCone = function () {      // (re)build body + head in the current colour (a line switch swaps colour and head shape together)
+  const ch = this.ch, u = this.u, G = coneGeos(u), M = coneMats(ch), ink = inkMat(ch.eye, u * 0.045, 2);
+  this.figure.clear(); this.yaw.clear();
+  const bowl = new THREE.Mesh(G.bowl, M.dark), cone = new THREE.Mesh(G.cone, M.body), hull = new THREE.Mesh(G.hullBody, ink); hull.renderOrder = 2;
+  this.figure.add(bowl, cone, hull);
+  const kind = ch.shape, c = softHead(kind); this.headKind = kind;
+  const bb = c.geo.boundingBox || (c.geo.computeBoundingBox(), c.geo.boundingBox), sz = bb.getSize(new V3()), s = 1.09 * u / Math.max(sz.x, sz.y) * (kind === 'square' ? 0.84 : 1);
+  const mesh = new THREE.Group(); mesh.scale.setScalar(s); mesh.position.set(-(bb.min.x + bb.max.x) / 2 * s, -bb.min.y * s, -(bb.min.z + bb.max.z) / 2 * s);
+  this.headMesh = new THREE.Mesh(c.geo, M.fill); mesh.add(this.headMesh);
+  this.eyes = []; for (const sd of [-1, 1]) { const ex = sd * Y_EYE_X, ey = Y_EYES[kind], e = new THREE.Mesh(c.eyeGeo(ex, ey), M.eye); e.position.set(ex, ey, c.eyeZ(ex, ey)); mesh.add(e); this.eyes.push(e); }
+  this.hull = new THREE.Mesh(c.geo, inkMat(ch.eye, u * 0.045 / s, 1)); this.hull.renderOrder = 2; mesh.add(this.hull);
+  this.yaw.add(mesh); this.neckY = 0.62 * u;
+};
+Orb.prototype.conePose = function (dt, now, sp, acc, t, step) {
+  const u = this.u, R = 0.5 * u, g = hillY(this.pos.x, this.pos.z), w = S.headWobble;
+  // weeble: the bowl rocks about its centre. Lean into acceleration + a little gait wobble, on a damped spring
+  const fwd = acc.x * this.move.x + acc.z * this.move.z, side = acc.z * this.move.x - acc.x * this.move.z;
+  const goalP = THREE.MathUtils.clamp(fwd * 0.05, -0.32, 0.32) + Math.sin(this.walk * 2.4) * 0.06 * Math.min(1, sp) * w;
+  const goalR = THREE.MathUtils.clamp(-side * 0.04, -0.25, 0.25) + Math.sin(this.walk * 1.2 + 1) * 0.08 * Math.min(1, sp) * w;
+  this.rockV.x += ((goalP - this.rock.x) * 60 - this.rockV.x * 7) * dt; this.rockV.z += ((goalR - this.rock.z) * 60 - this.rockV.z * 7) * dt;
+  this.rock.x += this.rockV.x * dt; this.rock.z += this.rockV.z * dt;
+  const ax = new V3(this.move.z, 0, -this.move.x), q = new THREE.Quaternion().setFromAxisAngle(ax, this.rock.x).multiply(new THREE.Quaternion().setFromAxisAngle(this.move, this.rock.z));
+  this.tilt.quaternion.copy(q);
+  this.body.position.set(this.pos.x, g + R + u * 0.045 + 0.01, this.pos.z); this.ballY = g + 0.06;   // lifted by the outline width so the floor never slices the bowl or its ink
+  this.shadow.scale.setScalar(u * 1.5); this.shadow.material.opacity = 1;
+  // head: stays put on the neck, only turns left / right toward where it is going (partly toward the viewer so faces read)
+  camFlat.copy(ortho.position).sub(camTarget); camFlat.y = 0;
+  const camW = camFlat.lengthSq() > 1e-4 ? S.headFaceCam : 0; if (camW) camFlat.normalize();
+  const fx = this.move.x * (1 - camW) + camFlat.x * camW, fz = this.move.z * (1 - camW) + camFlat.z * camW;
+  let d = Math.atan2(fx, fz) - this.yawNow; d = Math.atan2(Math.sin(d), Math.cos(d)); this.yawNow += d * Math.min(1, dt * 3); this.yaw.rotation.y = this.yawNow;
+  this.head.quaternion.copy(q); this.head.position.set(0, this.neckY, 0).applyQuaternion(q).add(this.body.position);
+  if (this.pop) { this.pop = Math.max(0, this.pop - dt * 2.2); this.head.scale.setScalar(1 + 0.32 * Math.sin(this.pop * Math.PI)); }
+  if (S.coneGrid && !roadsWorld()) this.path.hide(); else { this.path.push(this.pos, now); this.path.update(now, S.trailLife, S.ribbonWidth, S.trailStyle === 'ribbon'); }
+  if (Math.random() < dt * 0.05) say(this, now, false);
+};
+// grid moves, as in the hero sim (index.html): each guy plans a whole route on the grid first: long straight legs that
+// are whole numbers of cells, 90° turns (now and then 45°) rounded off with a tight fillet, never crossing itself.
+// It rolls the route at one steady speed (the same for everyone), laying the ribbon behind it; the ribbon lingers,
+// then lifts away from its start at 1.6x speed while the guy sets off on its next route.
+function planPath(route, step = 0.06) {      // route: [[x, z, filletR?], ...] -> sampled points + arc length + normals
+  const pts = [[route[0][0], route[0][1]]]; let cur = pts[0];
+  const lineTo = (a, b) => { const L = Math.hypot(b[0] - a[0], b[1] - a[1]), n = Math.max(1, Math.ceil(L / step)); for (let k = 1; k <= n; k++) pts.push([a[0] + (b[0] - a[0]) * k / n, a[1] + (b[1] - a[1]) * k / n]); };
+  for (let i = 1; i < route.length; i++) {
+    const B = route[i]; if (i === route.length - 1 || !B[2]) { lineTo(cur, B); cur = [B[0], B[1]]; continue; }
+    const C = route[i + 1], r = B[2], l1 = Math.hypot(B[0] - cur[0], B[1] - cur[1]), l2 = Math.hypot(C[0] - B[0], C[1] - B[1]);
+    const a = [(B[0] - cur[0]) / l1, (B[1] - cur[1]) / l1], b = [(C[0] - B[0]) / l2, (C[1] - B[1]) / l2];
+    const th = Math.acos(Math.max(-1, Math.min(1, a[0] * b[0] + a[1] * b[1]))), t = r * Math.tan(th / 2);
+    const p1 = [B[0] - a[0] * t, B[1] - a[1] * t], p2 = [B[0] + b[0] * t, B[1] + b[1] * t]; lineTo(cur, p1);
+    const nn = (a[0] * b[1] - a[1] * b[0]) > 0 ? [-a[1], a[0]] : [a[1], -a[0]], O = [p1[0] + nn[0] * r, p1[1] + nn[1] * r];
+    const a0 = Math.atan2(p1[1] - O[1], p1[0] - O[0]); let da = Math.atan2(p2[1] - O[1], p2[0] - O[0]) - a0;
+    while (da > Math.PI) da -= 2 * Math.PI; while (da < -Math.PI) da += 2 * Math.PI;
+    const m = Math.max(2, Math.ceil(Math.abs(da) * r / step)); for (let k = 1; k <= m; k++) { const q = a0 + da * k / m; pts.push([O[0] + r * Math.cos(q), O[1] + r * Math.sin(q)]); }
+    cur = p2;
+  }
+  const cum = [0], nrm = [];
+  for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+  for (let i = 0; i < pts.length; i++) { const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)], L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; nrm.push([-(b[1] - a[1]) / L, (b[0] - a[0]) / L]); }
+  return { pts, cum, nrm, len: cum[cum.length - 1] };
+}
+function pathIdx(p, s) { let lo = 0, hi = p.cum.length - 1; while (hi - lo > 1) { const m = (lo + hi) >> 1; if (p.cum[m] <= s) lo = m; else hi = m; } return lo; }
+function pathAt(p, s) {
+  s = Math.max(0, Math.min(p.len, s)); const i = pathIdx(p, s), j = Math.min(p.pts.length - 1, i + 1), u = (s - p.cum[i]) / Math.max(1e-6, p.cum[j] - p.cum[i]);
+  const A = p.pts[i], B = p.pts[j], na = p.nrm[i], nb = p.nrm[j];
+  return { x: A[0] + (B[0] - A[0]) * u, z: A[1] + (B[1] - A[1]) * u, nx: na[0] + (nb[0] - na[0]) * u, nz: na[1] + (nb[1] - na[1]) * u };
+}
+const GDIRS = [[1, 0], [0, 1], [-1, 0], [0, -1]];
+const rotDir = (d, a) => { const c = Math.cos(a), s = Math.sin(a), x = d[0] * c - d[1] * s, z = d[0] * s + d[1] * c; return [Math.abs(x) < 1e-9 ? 0 : x, Math.abs(z) < 1e-9 ? 0 : z]; };
+Orb.prototype.planRoute = function () {
+  const C = S.gridCell, R = this.R * 0.7, w = S.ribbonWidth;
+  const sx = Math.round(this.pos.x / C) * C, sz = Math.round(this.pos.z / C) * C;   // routes start and turn on grid points
+  const legFree = (a, b) => { const L = Math.hypot(b[0] - a[0], b[1] - a[1]), n = Math.ceil(L / 0.3); for (let k = 1; k <= n; k++) if (!isFree(a[0] + (b[0] - a[0]) * k / n, a[1] + (b[1] - a[1]) * k / n, R)) return false; return true; };
+  const othersNear = (q) => agents.some(o => o !== this && o.coneGuy && o.goal && Math.hypot(o.goal[0] - q[0], o.goal[1] - q[1]) < C * 1.5);
+  for (let tries = 0; tries < 60; tries++) {
+    let dir = tries < 40 && this.rdir ? this.rdir : GDIRS[(Math.random() * 4) | 0].slice(), p = [sx, sz]; const route = [[sx, sz]]; let ok = true;
+    const legs = 2 + ((Math.random() * 3) | 0);
+    for (let k = 0; k < legs && ok; k++) {
+      const diag = Math.abs(dir[0]) > 1e-6 && Math.abs(dir[1]) > 1e-6, cells = diag ? 2 + ((Math.random() * 2) | 0) : 2 + ((Math.random() * 3) | 0);
+      const L = cells * C * (diag ? Math.SQRT2 : 1), q = [p[0] + dir[0] * L, p[1] + dir[1] * L];
+      if (!legFree(p, q)) { ok = false; break; }
+      p = q; const sg = Math.random() < 0.5 ? 1 : -1, turn = diag ? Math.PI / 4 * sg : Math.random() < 0.18 ? Math.PI / 4 * sg : Math.PI / 2 * sg;
+      route.push([p[0], p[1], Math.min(C * 0.8, w * 1.55)]); dir = rotDir(dir, turn);
+    }
+    if (!ok) continue;
+    const diag = Math.abs(dir[0]) > 1e-6 && Math.abs(dir[1]) > 1e-6, L = (2 + ((Math.random() * 3) | 0)) * C * (diag ? Math.SQRT2 : 1), end = [p[0] + dir[0] * L, p[1] + dir[1] * L];
+    if (!legFree(p, end) || othersNear(end)) continue;
+    route.push(end);
+    const path = planPath(route), P = path.pts; let crosses = false;
+    for (let i = 0; i < P.length && !crosses; i += 4) for (let j = i + 4; j < P.length; j += 4) if (path.cum[j] - path.cum[i] > w * 5 && Math.hypot(P[i][0] - P[j][0], P[i][1] - P[j][1]) < w * 1.6) { crosses = true; break; }
+    if (crosses) continue;
+    this.rdir = dir; this.goal = end; return path;
+  }
+  this.rdir = null; return null;
+};
+Orb.prototype.gridStep = function (dt, pace, now) {
+  if (!this.jr) { this.jr = []; this.ribPool = []; this.cur = null; this.gWait = rand(0, 1.2); }
+  const speed = 1.15 * S.tempo, w = S.ribbonWidth, on = S.trailStyle === 'ribbon';
+  const before = new V3(this.pos.x, 0, this.pos.z);
+  if (!this.cur) {
+    if ((this.gWait -= dt) <= 0) {
+      const path = this.planRoute();
+      if (path) { const rib = this.ribPool.pop() || new PathRibbon(this.ch.head); rib.setColor(this.ch.head); this.cur = { path, head: 0, tail: 0, state: 'roll', rib, t: 0 }; this.jr.push(this.cur);
+        const a = pathAt(path, 0); this.pos.set(a.x, this.pos.y, a.z); before.set(a.x, 0, a.z); }
+      else this.gWait = rand(0.6, 1.2);
+    }
+  }
+  if (this.cur) {
+    const j = this.cur; j.t += dt; j.head = Math.min(j.path.len, j.head + speed * Math.min(1, j.t * 3) * dt);   // a quick start, then one steady speed
+    const a = pathAt(j.path, j.head); this.pos.set(a.x, this.pos.y, a.z);
+    if (j.head >= j.path.len) { j.state = 'linger'; j.hold = 1.6; this.cur = null; this.gWait = rand(0.4, 1.4); }
+  }
+  for (let i = this.jr.length - 1; i >= 0; i--) {
+    const j = this.jr[i];
+    if (j.state === 'linger' && (j.hold -= dt) <= 0) j.state = 'lift';
+    if (j.state === 'lift') { j.tail += speed * 1.6 * dt; if (j.tail >= j.head) { j.rib.hide(); this.ribPool.push(j.rib); this.jr.splice(i, 1); continue; } }
+    if (on) j.rib.fromPath(j.path, j.tail, j.head, w); else j.rib.hide();
+  }
+  const step = new V3(this.pos.x - before.x, 0, this.pos.z - before.z); this.pos.sub(step);   // update() adds the step back
+  this.vel.copy(step).divideScalar(Math.max(dt, 1e-4));
+  return step;
+};
+const GRID_RESET = (a) => { if (a.jr) { a.jr.forEach(j => j.rib.dispose()); (a.ribPool || []).forEach(r => r.dispose()); } a.jr = null; a.cur = null; a.ribPool = null; a.goal = null; };
 // bubble face: faint fill + the two little highlight dots at the upper right (positions measured off Will's reference)
 const bubbleTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d'); g.translate(128, 128);
   const gr = g.createRadialGradient(-20, -30, 10, 0, 0, 128); gr.addColorStop(0, 'rgba(255,255,255,0.16)'); gr.addColorStop(.85, 'rgba(255,255,255,0.08)'); gr.addColorStop(1, 'rgba(255,255,255,0.22)');
@@ -1417,6 +1637,7 @@ const bubbleTex = (() => { const c = document.createElement('canvas'); c.width =
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; })();
 const camFlat = new V3();
 Orb.prototype.buildSoft = function () {
+  if (this.coneGuy) return this.buildCone();
   const hc = this.ch, kind = this.headKind, c = softHead(kind), M = softMats(hc); this.M = M;
   // wire ball: the camera-facing outline (built in the constructor) + "middle lines" (great circles) that turn with the roll
   this.rings = new THREE.Group(); this.body.add(this.rings);
@@ -1455,9 +1676,11 @@ Orb.prototype.buildSoft = function () {
 };
 const arrowTex = spriteTex(g => { g.fillStyle = '#fff'; g.beginPath(); g.moveTo(0, -50); g.lineTo(54, 44); g.lineTo(-54, 44); g.closePath(); g.fill(); });
 Orb.prototype.applyLook = function () {
+  if (this.coneGuy) return;   // cone guys are always cel + ink
   const cel = S.headLook === 'cel'; this.headMesh.material = cel ? this.M.cel : this.M.head; this.eyes.forEach(e => e.material = cel ? this.M.celEye : this.M.eye); this.hull.visible = cel;
 };
 Orb.prototype.softPose = function (dt, now, sp, acc, t, y0, step) {
+  if (this.coneGuy) return this.conePose(dt, now, sp, acc, t, step);
   const R = this.R, w = S.headWobble;
   // hamster ball: rolls along the ground, and now and then floats up for a while (still turning from its momentum) and settles back down
   this.flyT -= dt;
@@ -1617,8 +1840,13 @@ function rebuildNet(net) {
 }
 function routeMat(net, col) {
   const m = net.SUB ? new LineMaterial({ color: col, linewidth: net.GAP * 1.04, worldUnits: true }) : new LineMaterial({ color: col, linewidth: 3.2, transparent: true, depthWrite: false });
-  m.userData.w = net.SUB ? net.GAP * 1.04 : 3.2; m.userData.keepColor = true; fatMats.push(m); return m;
+  m.userData.w = net.SUB ? net.GAP * 1.04 : 3.2; m.userData.keepColor = true; fatMats.push(m);
+  const key = Object.keys(HEAD_CHARS).find(k => HEAD_CHARS[k].P === col); if (key) { m.userData.routeKey = key; m.color.set(lineCol(key)); routeMats.push(m); }
+  return m;
 }
+// line colours follow the cast: the cone guys ride lines in their own (new) palette
+const routeMats = [], lineCol = (k) => (S.cast === 'coneguys' ? CONE_CHARS : HEAD_CHARS)[k].P;
+function paintRoutes() { for (const m of routeMats) m.color.set(lineCol(m.userData.routeKey)); }
 function routeAt(r, s, out, tan) {
   s = ((s % r.len) + r.len) % r.len; let lo = 0, hi = r.pts.length; while (hi - lo > 1) { const m = (lo + hi) >> 1; if (r.cum[m] <= s) lo = m; else hi = m; }
   const a = r.pts[lo], b = r.pts[(lo + 1) % r.pts.length], f = (s - r.cum[lo]) / Math.max(1e-6, r.cum[lo + 1] - r.cum[lo]);
@@ -1674,7 +1902,7 @@ function growStep() {
   line.renderOrder = 2; line.frustumCulled = false; geo.instanceCount = 0; net.group.add(line);
   const [x, z] = net.hubs[plan.idx], R = net.SUB ? 0.3 : 0.22, pin = new THREE.Group(); pin.position.set(x, 0.04, z); pin.scale.setScalar(0.001); net.group.add(pin);
   if (net.SUB) pin.add(new THREE.Mesh(new THREE.CircleGeometry(R, 32).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#ffffff' })));
-  const ring = fatLoop(circlePts(R, 40, 'xz'), 2.4); ring.material.userData.keepColor = true; ring.material.color.set(HEAD_CHARS[plan.d.col].P); pin.add(ring);
+  const ring = fatLoop(circlePts(R, 40, 'xz'), 2.4); ring.material.userData.keepColor = true; ring.material.color.set(lineCol(plan.d.col)); pin.add(ring);
   GROW.anim = { plan, line, geo, segN: segs.length / 6, pin, ring, t: 0, dur: 1.2 + path.length * 0.012 };
 }
 const orient = (e, from) => (e.key.split('-')[0] == from ? e.pts : [...e.pts].reverse());
@@ -1697,9 +1925,9 @@ function growTick(dt) {
   if (Math.abs(GROW.fit - f0) > 1e-5) resize();
 }
 function hopOn(route, hub) {   // a new head pops up at the new stop and rides off on that line
-  if (S.cast !== 'heads' || agents.length >= S.headsMax) return;
+  if (!headCast() || agents.length >= S.headsMax) return;
   const [k] = HEAD_ROSTER[agents.length % HEAD_ROSTER.length]; Orb.prototype.headKind = k;
-  const o = new Orb(route.ch, 'bubble', true); agents.push(o);
+  const o = S.cast === 'coneguys' ? makeConeGuy(route.ch.key) : new Orb(route.ch, 'bubble', true); agents.push(o);
   o.route = route; o.rs = (route.hubS.find((x) => x.hub === hub) || { s: 0 }).s; o.rv = 0; o.wait = 0; routeAt(route, o.rs, o.pos);
   for (const q of o.rope.pts) q.p.set(o.pos.x, 0, o.pos.z); o.pop = 1; o.flash = 1;
 }
@@ -1708,6 +1936,7 @@ Orb.prototype.joinRoad = function () {
   this.setRouteColor(this.route, true); routeAt(this.route, this.rs, this.pos);
 };
 Orb.prototype.setRouteColor = function (route, silent) {
+  if (this.coneGuy) { const ch = CONE_CHARS[route.ch.key]; if (this.ch === ch) return; this.ch = ch; this.dressCone(); this.rope.c = ch.cP; if (this.path) this.path.setColor(ch.head); if (this.jr) this.jr.forEach(j => j.rib.setColor(ch.head)); if (this.glow) this.glow.material.color.set(ch.P); if (!silent) this.pop = 1; return; }
   const ch = route.ch; if (this.ch === ch) return;
   this.ch = ch; this.M = softMats(ch); this.applyLook(); this.rope.c = ch.cP; if (this.glow) this.glow.material.color.set(ch.P);
   if (!silent) { this.pop = 1; this.outline.material.color.set(ch.P); this.flash = 1; }
@@ -1743,6 +1972,7 @@ function populate() {
   agents.forEach(a => { if (a.errand && a.errand.carry) scene.remove(a.errand.carry); a.dispose(); }); agents = [];
   looseBits.forEach(b => b.taken = false);
   phrases.forEach(ph => ph.els.forEach(e => e.remove())); phrases = [];
+  if (S.cast === 'coneguys') { for (let i = 0; i < S.heads; i++) agents.push(makeConeGuy(CONE_KEYS[i % CONE_KEYS.length])); return; }
   if (S.cast === 'heads') { for (let i = 0; i < S.heads; i++) { const [k, c] = HEAD_ROSTER[i % HEAD_ROSTER.length]; Orb.prototype.headKind = k; agents.push(new Orb(HEAD_CHARS[c], 'bubble', true)); } return; }
   if (S.cast === 'orbits') { for (let i = 0; i < S.orbs; i++) agents.push(i % 5 === 0 ? new Orb(CHARS.orbBlue, 'bubble') : i % 5 === 1 ? new Orb(CHARS.orbPink, 'bubble') : i % 5 === 2 ? new Orb(CHARS.orbBlue, 'cube') : i % 5 === 3 ? new Orb(CHARS.orbPink, 'cube') : new Orb(CHARS.orbGreen, 'cube')); return; }
   for (let i = 0; i < S.cubes; i++) agents.push(new Cube());
@@ -1752,7 +1982,7 @@ function populate() {
 
 // ---------- View 1: isometric <-> top-down (same orthographic camera, angle eases between) ----------
 const mainCanvas = document.getElementById('mainCanvas'), streetCanvas = document.getElementById('streetCanvas');
-const mainR = new THREE.WebGLRenderer({ canvas: mainCanvas, antialias: true });
+const mainR = new THREE.WebGLRenderer({ canvas: mainCanvas, antialias: true, stencil: true });
 mainR.setPixelRatio(Math.min(2, devicePixelRatio));
 const ortho = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 200);
 const camTarget = new V3(0, 0, 0);
@@ -1785,7 +2015,7 @@ function warpFor(pass, k) {               // where a point lands after a fisheye
     for (let i = 0; i < 6; i++) { const r2 = px * px + py * py, f = (1 + kk * r2) / (1 + kk * (a * a + 1)); px = qx / f; py = qy / f; }
     return [px / a, py]; };
 }
-const mainComposer = new EffectComposer(mainR, new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType, samples: 4 }));
+const mainComposer = new EffectComposer(mainR, new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType, samples: 4, stencilBuffer: true }));
 mainComposer.addPass(new RenderPass(scene, ortho));
 const bloomMain = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.6, 0.35, 0.85); mainComposer.addPass(bloomMain);
 const mainFish = makeFisheye(S.mainFishK, 16 / 9); mainFish.enabled = S.mainFish; mainComposer.addPass(mainFish);
@@ -1793,10 +2023,10 @@ mainComposer.addPass(new OutputPass());
 mainCanvas.addEventListener('wheel', (e) => { e.preventDefault(); frustum = THREE.MathUtils.clamp(frustum * (1 + e.deltaY * 0.001), 5, 30); resize(); }, { passive: false });
 
 // ---------- View 2: 9:16 street camera with depth blur + fisheye ----------
-const streetR = new THREE.WebGLRenderer({ canvas: streetCanvas, antialias: true });
+const streetR = new THREE.WebGLRenderer({ canvas: streetCanvas, antialias: true, stencil: true });
 streetR.setPixelRatio(Math.min(2, devicePixelRatio));
 const persp = new THREE.PerspectiveCamera(78, 9 / 16, 0.05, 100);
-const msaaRT = () => new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType, samples: 4 });
+const msaaRT = () => new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType, samples: 4, stencilBuffer: true });
 const composer = new EffectComposer(streetR, msaaRT());
 composer.addPass(new RenderPass(scene, persp));
 const bloomStreet = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.6, 0.35, 0.85); composer.addPass(bloomStreet);
@@ -1853,7 +2083,7 @@ function applyPreset(key) {
   mainR.setClearColor(P.bg); streetR.setClearColor(P.bg); scene.background = new THREE.Color(P.bg);
   groundMat.color.set(P.ground); streetMat.color.set(P.street); bMat.color.set(P.building); bEdgeMat.color.set(P.buildingEdge);
   cloudGroup.visible = P.points; cGround.set(P.ground); gapMat.color.set(P.ground); cOutline.set(P.outline);
-  S.trailStyle = (() => { try { const v = localStorage.getItem('lb-trail'); if (v === 'off') return 'off'; } catch (e) {} return S.cast === 'heads' ? 'dots' : P.trails; })(); if (typeof styleCtl !== 'undefined') styleCtl.updateDisplay(); { const ts = document.getElementById('trailSel'); if (ts) ts.value = S.trailStyle; }
+  S.trailStyle = (() => { try { const v = localStorage.getItem('lb-trail'); if (v === 'off') return 'off'; } catch (e) {} return S.cast === 'coneguys' ? 'ribbon' : headCast() ? 'dots' : P.trails; })(); if (typeof styleCtl !== 'undefined') styleCtl.updateDisplay(); { const ts = document.getElementById('trailSel'); if (ts) ts.value = S.trailStyle; }
   nightOn = !!P.night; nightGroup.visible = nightOn; orbLine.set(key === 'hero' ? '#3a3a3a' : '#ffffff'); if (typeof fatMats !== 'undefined') fatMats.forEach(m => { if (!m.userData.keepColor) m.color.copy(orbLine); });
   hillMat.color.set(nightOn ? '#0e0c10' : key === 'hero' ? '#ffffff' : '#d4d3d0'); hillEdgeMat.color.set(nightOn ? '#8a6a3a' : key === 'hero' ? '#d9d9d9' : '#9b9a98');
   pathDotMat.color.set(nightOn ? '#2a2420' : key === 'hero' ? '#bdbdbd' : '#8d8c89');
@@ -1876,7 +2106,7 @@ fM.add(S, 'coneTurn', 0, 180, 5).name('cone turn range °');
 fM.add(S, 'sphereSpeed', 0.2, 3, 0.05).name('sphere speed');
 fM.add(S, 'contribute', 0, 10, 0.1).name('how often they contribute');
 const fT = gui.addFolder('Trails + phrases');
-const styleCtl = fT.add(S, 'trailStyle', { 'Lines + nodes': 'lines', 'Dots (murmur)': 'dots', 'Stamps (hero frame)': 'stamps', 'Off (no trails)': 'off' }).name('trail style').onChange(v => { trailSel.value = v; });
+const styleCtl = fT.add(S, 'trailStyle', { 'Lines + nodes': 'lines', 'Dots (murmur)': 'dots', 'Stamps (hero frame)': 'stamps', 'Ribbon (hero sim)': 'ribbon', 'Off (no trails)': 'off' }).name('trail style').onChange(v => { trailSel.value = v; });
 const trailSel = document.getElementById('trailSel');
 const castSel = document.getElementById('castSel'); castSel.value = S.cast;
 const LEGENDS = {
@@ -1884,8 +2114,9 @@ const LEGENDS = {
   orbits: '<span><i style="background:#459af6"></i>Blue weaves</span><span><i style="background:#ea3383"></i>Pink glides · spins · darts</span><span><i style="background:#54b642"></i>Green lazy arcs</span>',
   heads: '<span><i style="background:#c5ee70;box-shadow:inset 0 -3px #55c06a"></i>Green</span><span><i style="background:#f6bb80;box-shadow:inset 0 -3px #d0814f"></i>Orange</span><span><i style="background:#7aeeb8;box-shadow:inset 0 -3px #5fc8b3"></i>Mint</span><span><i style="background:#a8c1d6;box-shadow:inset 0 -3px #3a4a75"></i>Blue</span><span><i style="background:#ee6878;box-shadow:inset 0 -3px #bb5f68"></i>Red</span><span>· rolling wire balls</span>',
 };
+LEGENDS.coneguys = CONE_KEYS.map(k => `<span><i style="background:${CONE_CHARS[k].head};box-shadow:inset 0 -3px ${CONE_CHARS[k].eye};outline:1px solid ${CONE_CHARS[k].eye}"></i>${k[0].toUpperCase() + k.slice(1)} ${CONE_CHARS[k].shape}</span>`).join('') + '<span>· cone guys</span>';
 const setLegend = () => { document.getElementById('legend').innerHTML = LEGENDS[S.cast] || LEGENDS.blocks; }; setLegend();
-castSel.onchange = () => { S.cast = castSel.value; setLegend(); if (S.cast === 'heads') { S.trailStyle = 'dots'; trailSel.value = 'dots'; styleCtl.updateDisplay(); } try { localStorage.setItem('lb-cast08', S.cast); } catch (e) {} trails = []; populate(); };
+castSel.onchange = () => { S.cast = castSel.value; setLegend(); if (headCast()) { S.trailStyle = S.cast === 'coneguys' ? 'ribbon' : 'dots'; trailSel.value = S.trailStyle; styleCtl.updateDisplay(); } try { localStorage.setItem('lb-cast12', S.cast); } catch (e) {} paintRoutes(); trails = []; populate(); };
 trailSel.onchange = () => { S.trailStyle = trailSel.value; styleCtl.updateDisplay(); try { localStorage.setItem('lb-trail', S.trailStyle); } catch (e) {} };
 fT.add(S, 'trailLife', 1, 20, 0.5).name('trail fade after (s)');
 fT.add(S, 'trailWidth', 0.5, 6, 0.1).name('trail width');
@@ -1897,9 +2128,9 @@ const fP = gui.addFolder('Population');
 fP.add(S, 'rollShare', 0, 1, 0.05).name('boxes that roll (vs glide)').onChange(() => populate());
 fP.add(S, 'hill').name('hill + pile (experimental)').onChange(() => { applyHill(); populate(); });
 function applyWorld(repop = true) {
-  const roads = roadsWorld(); cityGroup.visible = !roads; ground.scale.setScalar(roads ? 10 : 1); streetMeshes.forEach(m => m.visible = !roads);
+  const roads = roadsWorld(), flat = S.world === 'flat'; cityGroup.visible = !roads && !flat; ground.scale.setScalar(roads || flat ? 10 : 1); streetMeshes.forEach(m => m.visible = !roads && !flat);
   for (const [k, n] of Object.entries(ROADS.nets)) n.group.visible = S.world === k; if (roads) ROADS.routes = ROADS.nets[S.world].routes;
-  nightGroup.visible = nightOn && !roads; NAV.free = null;
+  nightGroup.visible = nightOn && !roads && !flat; NAV.free = null;
   const bg = nightOn ? P.bg : roads ? (P === PRESETS.hero ? '#ffffff' : S.world === 'subway' ? '#f7f6f1' : '#f5f5f3') : P.bg;
   mainR.setClearColor(bg); streetR.setClearColor(bg); scene.background = new THREE.Color(bg); groundMat.color.set(roads && !nightOn ? bg : P.ground);
   for (const n of Object.values(ROADS.nets)) n.group.userData.gridMat.color.set(nightOn ? '#2a2a30' : '#d6d6d4');
@@ -1917,14 +2148,18 @@ fR.add(S, 'growMax', 14, 120, 1).name('max stops');
 fR.add(S, 'headsMax', 5, 80, 1).name('max heads');
 fR.add(S, 'growCam').name('camera eases out');
 fR.add({ regrow: () => { const n = ROADS.nets[S.world]; if (!n) return; if (GROW.anim) { n.group.remove(GROW.anim.line, GROW.anim.pin); GROW.anim = null; } resetNet(n); n.group.visible = true; applyWorld(); } }, 'regrow').name('start the map over');
+const fCG = gui.addFolder('Cone guys');
+fCG.add(S, 'coneGrid').name('grid routes (hero sim)').onChange(() => agents.forEach(GRID_RESET));
+fCG.add(S, 'gridCell', 0.4, 2.5, 0.05).name('grid cell size').onChange(() => agents.forEach(GRID_RESET));
+fCG.add(S, 'ribbonWidth', 0.1, 1, 0.01).name('ribbon width');
 const fH = gui.addFolder('Heads (3D, in wire balls)');
-fH.add(S, 'heads', 1, 30, 1).name('how many').onFinishChange(() => { if (S.cast === 'heads') populate(); });
-fH.add(S, 'headSize', 0.6, 1.8, 0.05).name('ball size').onFinishChange(() => { if (S.cast === 'heads') populate(); });
+fH.add(S, 'heads', 1, 30, 1).name('how many').onFinishChange(() => { if (headCast()) populate(); });
+fH.add(S, 'headSize', 0.6, 1.8, 0.05).name('ball size').onFinishChange(() => { if (headCast()) populate(); });
 fH.add(S, 'headFaceCam', 0, 1, 0.05).name('face toward viewer');
 fH.add(S, 'headWobble', 0, 2, 0.05).name('wobble + nod');
 fH.add(S, 'ballLines', 0, 3, 1).name('middle lines on the ball');
 fH.add(S, 'floatOften', 0, 3, 0.05).name('how often they float');
-fH.add(S, 'arrowShare', 0, 1, 0.05).name('share with an arrow').onFinishChange(() => { if (S.cast === 'heads') populate(); });
+fH.add(S, 'arrowShare', 0, 1, 0.05).name('share with an arrow').onFinishChange(() => { if (headCast()) populate(); });
 const lookCtl = fH.add(S, 'headLook', { 'Soft 3D (plastic)': 'soft', 'Cel shaded': 'cel' }).name('head look').onChange(() => setLook(S.headLook));
 function setLook(v) { S.headLook = v; try { localStorage.setItem('lb-look', v); } catch (e) {} lookCtl.updateDisplay();
   document.getElementById('btnSoft').setAttribute('aria-pressed', v === 'soft'); document.getElementById('btnCel').setAttribute('aria-pressed', v === 'cel');
@@ -1969,7 +2204,7 @@ function setView(v) { viewGoal = v === 'top' ? TOP : ISO; btnIso.setAttribute('a
 btnIso.onclick = () => setView('iso'); btnTop.onclick = () => setView('top');
 let paused = false;
 btnPause.onclick = () => { paused = !paused; btnPause.setAttribute('aria-pressed', paused); btnPause.textContent = paused ? 'Play' : 'Pause'; };
-document.getElementById('btnClear').onclick = () => { trails = []; updateStamps(Infinity); agents.forEach(a => a.ribbon && a.ribbon.clear()); agents.forEach(a => { a.cursor = null; a.seg = null; }); };
+document.getElementById('btnClear').onclick = () => { trails = []; updateStamps(Infinity); agents.forEach(a => a.ribbon && a.ribbon.clear()); agents.forEach(a => a.path && a.path.clear()); agents.forEach(a => a.coneGuy && GRID_RESET(a)); agents.forEach(a => { a.cursor = null; a.seg = null; }); };
 const btnPhrases = document.getElementById('btnPhrases');
 btnPhrases.onclick = () => { phrasesOn = !phrasesOn; btnPhrases.setAttribute('aria-pressed', phrasesOn); };
 const showBtn = document.getElementById('showBtn');
