@@ -1,0 +1,8 @@
+{
+  "name": "dialkit",
+  "version": "2.0.2",
+  "author": "Josh Puckett",
+  "license": "MIT",
+  "repository": "https://github.com/joshpuckett/dialkit",
+  "source": "dialkit/dist/vanilla/index.js and styles.css; unmodified package distributions"
+}

@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Healthier | Scene composer</title>
+<link rel="stylesheet" href="./vendor/dialkit.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap">
+<style>
+*{box-sizing:border-box} [hidden]{display:none!important}
+:root{color-scheme:light;font:14px/1.4 system-ui,-apple-system,sans-serif;color:#252522;background:#eaeae6}
+body{margin:0}.app{display:grid;grid-template-columns:minmax(0,1fr) 322px;height:100dvh}
+main{min-width:0;min-height:0;display:flex;flex-direction:column}
+header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 22px;border-bottom:1px solid #d5d5cf;background:#f7f7f4}
+h1{font:500 18px/1.1 system-ui;letter-spacing:-.045em;margin:0}.brand{display:flex;align-items:center;gap:10px}.brand svg{width:22px;height:22px}
+button,select,input{font:inherit;color:inherit}button,select,input[type=number],input[type=text]{border:1px solid #d4d4ce;border-radius:8px;background:#fff;padding:8px 10px;min-height:38px}
+button,select{cursor:pointer}button:hover{background:#f0f0eb}button:focus-visible,select:focus-visible,input:focus-visible,summary:focus-visible{outline:2px solid #555cc0;outline-offset:2px}
+#stage{flex:1;min-height:0;overflow:auto;padding:18px;display:flex}#frame{position:relative;flex:none;margin:auto;overflow:hidden;background:white;box-shadow:0 1px 8px #2222;container-type:inline-size;isolation:isolate}
+#hero,#cv{position:absolute;inset:0;width:100%;height:100%}#cv{touch-action:none}#hero{background:#ffffff;overflow:hidden}
+.part,.shadow{position:absolute;transform:translate(-50%,-50%);user-select:none}.part{touch-action:none;cursor:grab;-webkit-user-drag:none}.part:active{cursor:grabbing}
+.shadow{height:2%;background:radial-gradient(ellipse,#7776,transparent 70%);pointer-events:none}
+#headline{position:absolute;z-index:2;left:50%;top:50%;transform:translate(-50%,-50%);margin:0;text-align:center;font-family:Arial,Helvetica,sans-serif;font-size:7.35cqw;font-weight:500;line-height:.96;letter-spacing:-.065em;white-space:nowrap;pointer-events:none;color:#090909}
+#headline span{display:block;color:#acacab}#headline strong{font-weight:inherit}
+aside{background:#fafaf8;border-left:1px solid #d5d5cf;overflow:auto;padding:20px;scrollbar-width:thin}
+#inspector{--dial-row-height:44px;--dial-radius:7px;--dial-surface:#eeeee9;--dial-surface-active:#deded7;--dial-text-label:#353531}
+section,details{margin:0 0 18px;padding:0 0 18px;border-bottom:1px solid #deded7}
+h2,summary{margin:0 0 10px;font-size:14px;font-weight:600;letter-spacing:-.025em}summary{cursor:pointer}details:not([open]) summary{margin:0}
+.stack{display:grid;gap:6px}.row{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+label.text{display:grid;gap:4px;color:#595953;font-size:12px}label.text input,select{width:100%}.dims{display:grid;grid-template-columns:1fr 1fr;gap:8px}.dims input{min-width:0;width:100%}
+#hint{font-size:12px;color:#686860;margin:9px 0 0}.meta{font:11px ui-monospace,monospace;color:#66665d;white-space:nowrap}
+#guide{position:absolute;pointer-events:none;background:#9994;border:1px dashed #888;display:none}body.guideOn[data-mode=iso] #guide{display:block}
+body.preview aside,body.preview header{display:none}body.preview .app{display:block}body.preview main,body.preview #stage{height:100dvh}body.preview #stage{padding:0;background:#fff}body.preview #frame{box-shadow:none}
+#exit{display:none;position:fixed;right:14px;top:14px;z-index:5}body.preview #exit{display:block;opacity:0}body.preview #exit:hover,body.preview #exit:focus-visible,body.preview.show-exit #exit{opacity:1}
+@media(max-width:760px){.app{grid-template-columns:1fr;grid-template-rows:44dvh minmax(0,1fr)}aside{border-left:0;border-top:1px solid #d5d5cf;padding:16px 20px}header{padding:8px 14px}#stage{padding:9px}}
+
+#saveStatus,.note{font-size:11px;color:#73736b}.note{margin:3px 0}.app{grid-template-columns:minmax(0,1fr) 340px}
+#textSpace{position:absolute;z-index:3;display:flex;align-items:center;justify-content:center;background:#ffffff;touch-action:none;cursor:move;padding:1.5%;text-align:center;overflow:hidden}
+#isoHeadline{font:500 5cqw/.98 Arial,Helvetica,sans-serif;letter-spacing:-.065em;white-space:pre-wrap;overflow-wrap:anywhere;color:#090909;pointer-events:none}
+body.guideOn #textSpace{outline:1px dashed #999;outline-offset:-1px}
+#selection{position:absolute;border:1px solid #6e77ca;pointer-events:none;z-index:4}
+#resizeActor,#resizeSpace{position:absolute;right:0;bottom:0;width:24px;height:24px;min-height:24px;padding:0;border:1px solid #777;background:#fff;pointer-events:auto;touch-action:none;cursor:nwse-resize;border-radius:3px;z-index:5}
+#resizeActor::after,#resizeSpace::after{content:'↘';font-size:16px}
+body:not(.guideOn) #resizeSpace,body.preview #selection,body.preview #resizeSpace{display:none!important}
+body.preview #textSpace{outline:none;cursor:default}body.preview .part{cursor:default}
+#hero{background:#ffffff}
+@media(max-width:760px){.app{grid-template-columns:1fr;grid-template-rows:44dvh minmax(0,1fr)}}
+
+#cv{z-index:1}#hero{z-index:2;background:transparent!important;pointer-events:none}#headline{z-index:2}
+#frame{background:#ffffff}
+#inspector{padding:12px;--dial-row-height:44px}#dialRoot{width:100%}
+#inspector .dialkit-root{width:100%}#hint,#saveStatus,.note{padding:0 8px}
+#sourceWorld{position:fixed;width:10px;height:10px;left:-100px;top:-100px;visibility:hidden;pointer-events:none}
+
+#composerLabels{position:absolute;inset:0;z-index:2;pointer-events:none;overflow:hidden}
+#composerLabels .phrase{position:absolute;left:0;top:0;white-space:nowrap;font-family:'JetBrains Mono',ui-monospace,Menlo,monospace;font-weight:500;text-transform:uppercase;letter-spacing:.05em;font-size:11px;line-height:1;padding:4px 6px 3px;transform-origin:0 100%;will-change:transform,opacity}
+</style></head><body><div class="app"><main><header><div class="brand"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="3" width="20" height="18" rx="4"/><path d="M16 3v18"/></svg><h1>Scene composer</h1></div><div class="row"><span class="meta" id="dimensions"></span><button id="preview">Preview</button></div></header><div id="stage"><div id="frame"><div id="hero"><h2 id="headline"><strong>A new world</strong><span>of frontier medicine.</span></h2></div><canvas id="cv"></canvas><div id="textSpace" hidden><div id="isoHeadline">Headline here.</div><button id="resizeSpace" aria-label="Resize headline area"></button></div><div id="selection" hidden><button id="resizeActor" aria-label="Resize selected character"></button></div></div></div></main>
+<aside id="inspector"><div id="dialRoot"></div><p id="hint"></p><p id="saveStatus" role="status"></p><p class="note">DialKit by Josh Puckett · Double-click a value to edit.</p></aside></div><button id="exit">Exit preview</button>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+<script type="module" src="./composer.js"></script></body></html>
