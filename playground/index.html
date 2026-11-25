@@ -89,6 +89,7 @@ body.bare header, body.bare .chrome { display: none !important; }
     <span>View</span>
     <button id="btnIso" aria-pressed="true">Isometric</button>
     <button id="btnTop" aria-pressed="false">Top-down</button>
+    <button id="btnSide" aria-pressed="false" title="Flat 2D side-on view, zoomed in">Side</button>
     <button id="btnFish" aria-pressed="false" title="Bend the world view like a fisheye lens (tune it under Tweak, World fisheye)">Fisheye</button>
   </div>
   <div class="group">
@@ -216,7 +217,7 @@ for (const c of Object.values(CHARS)) { c.cP = new THREE.Color(c.P); c.cS = new 
 
 // ---------- Tweakable settings (the "knobs") ----------
 const S = {
-  tempo: 1, coneGrid: true, gridCell: 0.8, ribbonWidth: 0.42, trailStyle: 'lines', trailLife: 6, trailWidth: 2.4,
+  tempo: 1, coneGrid: true, avoidTrails: true, gridCell: 0.8, ribbonWidth: 0.42, trailHold: 5, trailStyle: 'lines', trailLife: 6, trailWidth: 2.4,
   cubes: 6, cones: 8, spheres: 6, orbs: 10, heads: 16, headSize: 1.5, headFaceCam: 0.7, bubbleFill: 1, headWobble: 1, roadSpeed: 1, switchChance: 0.45, grow: true, growEvery: 4, growMax: 60, headsMax: 40, growCam: true, world: (() => { try { return localStorage.getItem('lb-world11') || 'subway'; } catch (e) { return 'subway'; } })(), ballLines: 2, arrowShare: 0.5, floatOften: 1, headLook: (() => { try { return localStorage.getItem('lb-look') || 'soft'; } catch (e) { return 'soft'; } })(), hill: false, rollShare: 0.6, cast: (() => { try { return localStorage.getItem('lb-cast12') || 'coneguys'; } catch (e) { return 'coneguys'; } })(),
   cubeBurst: 4, cubePause: 0.8,
   coneHopHeight: 0.55, coneTurn: 110,
@@ -1465,34 +1466,38 @@ const CONE_KEYS = Object.keys(CONE_PAL);
 const CONE_CHARS = Object.fromEntries(CONE_KEYS.map(k => { const [f, st, shape] = CONE_PAL[k], h = HEAD_CHARS[k];
   return [k, { key: k, shape, head: f, eye: st, P: st, S: f, move: h.move, face: h.face, phrases: h.phrases, cP: new THREE.Color(st), cS: new THREE.Color(f) }]; }));
 const coneMatCache = {};
-function inkMat(color, w, ref = 1) {   // ref 1 = head, 2 = body: each part's ink only hides behind its own part, so the chin is always outlined
-   // inverted hull pushed out along the normals: an even outline all the way round
-  const key = color + w + ':' + ref; if (coneMatCache[key]) return coneMatCache[key];
-  const m = new THREE.MeshBasicMaterial({ color, side: THREE.BackSide, toneMapped: false,   // stencil: never drawn over a cone guy, so only the silhouette ring shows (no lines in the star's inner corners)
-    stencilWrite: true, stencilRef: ref, stencilFunc: THREE.NotEqualStencilFunc, stencilFail: THREE.KeepStencilOp, stencilZFail: THREE.KeepStencilOp, stencilZPass: THREE.KeepStencilOp });
+// Outlines (per guy, via the stencil buffer). Every guy has its own id: its body writes id*2, its head id*2+1.
+//  body ink: an inverted hull pushed out along the normals, drawn wherever it isn't on this guy's own body or head
+//  head ink: the same for the head, drawn wherever it isn't on this guy's own head (so it crosses other guys too)
+//  chin ink: the head hull again, but ignoring depth and drawn ONLY over this guy's own body. The head's outline
+//            otherwise sits behind the cone at the chin and gets hidden; this puts the chin line back, like the reference.
+let coneIds = 0;
+function inkMat(color, w, ref, func, mask = 0xff, depth = true) {
+  const m = new THREE.MeshBasicMaterial({ color, side: THREE.BackSide, toneMapped: false, depthTest: depth, depthWrite: false,
+    stencilWrite: true, stencilRef: ref, stencilFunc: func, stencilFuncMask: mask, stencilWriteMask: 0, stencilFail: THREE.KeepStencilOp, stencilZFail: THREE.KeepStencilOp, stencilZPass: THREE.KeepStencilOp });
   m.onBeforeCompile = (sh) => { sh.vertexShader = sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>\n  transformed += normalize(normal) * ${w.toFixed(5)};`); };
-  m.customProgramCacheKey = () => 'ink' + w.toFixed(5);   // (stencil isn't part of the program)
-  return (coneMatCache[key] = m);
+  m.customProgramCacheKey = () => 'ink' + w.toFixed(5);   // (stencil settings aren't part of the program)
+  return m;
 }
-function coneMats(ch) {
-  const k = 'm' + ch.head + ch.eye; if (coneMatCache[k]) return coneMatCache[k];
-  const st = { stencilWrite: true, stencilRef: 1, stencilFunc: THREE.AlwaysStencilFunc, stencilZPass: THREE.ReplaceStencilOp }, sb = { ...st, stencilRef: 2 };
-  return (coneMatCache[k] = {
-    body: new THREE.MeshToonMaterial({ color: ch.head, gradientMap: TOON_STEPS, emissive: new THREE.Color(ch.head).multiplyScalar(.36), toneMapped: false, ...sb }),
-    fill: new THREE.MeshToonMaterial({ color: ch.head, gradientMap: TOON_STEPS, emissive: new THREE.Color(ch.head).multiplyScalar(.36), toneMapped: false, side: THREE.DoubleSide, ...st }),   // double-sided: hairline cracks in the tessellated head show its own fill, not the ink
-    dark: new THREE.MeshToonMaterial({ color: ch.eye, gradientMap: TOON_STEPS, emissive: new THREE.Color(ch.eye).multiplyScalar(.36), toneMapped: false, ...sb }),
-    eye: new THREE.MeshBasicMaterial({ color: ch.eye, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3, ...st }) });
+function coneMats(ch, id) {
+  const HR = id * 2 + 1, BR = id * 2, st = (ref) => ({ stencilWrite: true, stencilRef: ref, stencilFunc: THREE.AlwaysStencilFunc, stencilZPass: THREE.ReplaceStencilOp });
+  const toon = (c, ref, extra = {}) => new THREE.MeshToonMaterial({ color: c, gradientMap: TOON_STEPS, emissive: new THREE.Color(c).multiplyScalar(.36), toneMapped: false, ...st(ref), ...extra });
+  return {
+    band: toon(new THREE.Color(ch.head).lerp(new THREE.Color(ch.eye), 0.16), BR), body: toon(ch.head, BR, { polygonOffset: true, polygonOffsetFactor: 2, polygonOffsetUnits: 4 }), dark: toon(ch.eye, BR),   // (cone pushed back a hair: the head always wins a tie with the cone top)
+    fill: toon(ch.head, HR, { side: THREE.DoubleSide }),   // double-sided: hairline cracks in the tessellated head show its own fill, not the ink
+    eye: new THREE.MeshBasicMaterial({ color: ch.eye, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3, ...st(HR) }) };
 }
 const coneGeoCache = {};
 function coneGeos(u) {          // proportions from the hero sim / GLB export: bowl radius .5, cone 1.0 tall, head 1.09 wide, seated .62 up the cone
   const k = u.toFixed(4); if (coneGeoCache[k]) return coneGeoCache[k];
-  const R = 0.5 * u, H = 1.0 * u, bowl = [];
-  for (let i = 0; i <= 24; i++) { const a = (i / 24) * Math.PI / 2; bowl.push(new THREE.Vector2(Math.max(1e-4, Math.sin(a) * R), -Math.cos(a) * R)); }
-  const cone = [new THREE.Vector2(R * 0.999, 0.0), new THREE.Vector2(1e-4, H)];   // bottom to top so the normals face out
-  const lid = [new THREE.Vector2(R, 0), new THREE.Vector2(1e-4, 0)];
-  return (coneGeoCache[k] = { R, H, bowl: new THREE.LatheGeometry(bowl, 48), cone: new THREE.LatheGeometry(cone, 48), lid: new THREE.LatheGeometry(lid, 48),
-    hullBody: (() => { const pts = []; for (let i = 0; i <= 24; i++) { const a = (i / 24) * Math.PI / 2; pts.push(new THREE.Vector2(Math.max(1e-4, Math.sin(a) * R), -Math.cos(a) * R)); }
-      pts.push(new THREE.Vector2(1e-4, H)); return new THREE.LatheGeometry(pts, 48); })() });
+  const R = 0.5 * u, H = 1.0 * u, NECK = 0.62 * u, TOP = NECK + 0.004 * u, HT = NECK + 0.02 * u, rAt = (y) => R * (1 - y / H), V = (x, y) => new THREE.Vector2(Math.max(1e-4, x), y);
+  const bowl = []; for (let i = 0; i <= 24; i++) { const a = (i / 24) * Math.PI / 2; bowl.push(V(Math.sin(a) * R, -Math.cos(a) * R)); }
+  // the cone is cut off just inside the head, so its tip never shows between the star's points or under the chin
+  const cone = [V(R * 0.999, 0), V(rAt(TOP), TOP), V(0, TOP)];
+  // shadow band: the strip of cone just under the head, a shade darker (as in the reference sheet)
+  const B0 = NECK - 0.17 * u, band = [V(rAt(B0) + 0.002, B0), V(rAt(TOP) + 0.002, TOP), V(0, TOP)];
+  const hull = bowl.slice(); hull.push(V(rAt(HT), HT), V(0, HT));   // runs right up into the head, so the cone's side lines meet the chin with no gap
+  return (coneGeoCache[k] = { R, H, bowl: new THREE.LatheGeometry(bowl, 48), cone: new THREE.LatheGeometry(cone, 48), band: new THREE.LatheGeometry(band, 48), hullBody: new THREE.LatheGeometry(hull, 48) });
 }
 function makeConeGuy(key) { Orb.prototype.coneGuy = true; Orb.prototype.headKind = CONE_CHARS[key].shape; const o = new Orb(CONE_CHARS[key], 'bubble', true); Orb.prototype.coneGuy = false; return o; }
 Orb.prototype.coneGuy = false;
@@ -1508,17 +1513,25 @@ Orb.prototype.buildCone = function () {
   this.disposeFace = () => { headGroup.remove(glow); this.path.dispose(); GRID_RESET(this); };
 };
 Orb.prototype.dressCone = function () {      // (re)build body + head in the current colour (a line switch swaps colour and head shape together)
-  const ch = this.ch, u = this.u, G = coneGeos(u), M = coneMats(ch), ink = inkMat(ch.eye, u * 0.045, 2);
+  if (!this.sid) this.sid = 1 + (coneIds++ % 126);
+  const ch = this.ch, u = this.u, G = coneGeos(u), id = this.sid, M = coneMats(ch, id), W = u * 0.03;
+  if (this.oldMats) this.oldMats.forEach(m => m.dispose());
   this.figure.clear(); this.yaw.clear();
-  const bowl = new THREE.Mesh(G.bowl, M.dark), cone = new THREE.Mesh(G.cone, M.body), hull = new THREE.Mesh(G.hullBody, ink); hull.renderOrder = 2;
-  this.figure.add(bowl, cone, hull);
+  const bodyInk = inkMat(ch.eye, W, id * 2, THREE.NotEqualStencilFunc, 0xfe);
+  const bowl = new THREE.Mesh(G.bowl, M.dark), cone = new THREE.Mesh(G.cone, M.body), band = new THREE.Mesh(G.band, M.band), hull = new THREE.Mesh(G.hullBody, bodyInk); hull.renderOrder = 6;
+  [bowl, cone, band].forEach(m => m.renderOrder = 5);   // guys draw after the ribbons (4), so a ribbon can never paint over a guy or its outline
+  band.visible = false;   // (the darker neck strip read as a smudge under the head)
+  this.figure.add(bowl, cone, band, hull);
   const kind = ch.shape, c = softHead(kind); this.headKind = kind;
   const bb = c.geo.boundingBox || (c.geo.computeBoundingBox(), c.geo.boundingBox), sz = bb.getSize(new V3()), s = 1.09 * u / Math.max(sz.x, sz.y) * (kind === 'square' ? 0.84 : 1);
   const mesh = new THREE.Group(); mesh.scale.setScalar(s); mesh.position.set(-(bb.min.x + bb.max.x) / 2 * s, -bb.min.y * s, -(bb.min.z + bb.max.z) / 2 * s);
-  this.headMesh = new THREE.Mesh(c.geo, M.fill); mesh.add(this.headMesh);
-  this.eyes = []; for (const sd of [-1, 1]) { const ex = sd * Y_EYE_X, ey = Y_EYES[kind], e = new THREE.Mesh(c.eyeGeo(ex, ey), M.eye); e.position.set(ex, ey, c.eyeZ(ex, ey)); mesh.add(e); this.eyes.push(e); }
-  this.hull = new THREE.Mesh(c.geo, inkMat(ch.eye, u * 0.045 / s, 1)); this.hull.renderOrder = 2; mesh.add(this.hull);
+  this.headMesh = new THREE.Mesh(c.geo, M.fill); this.headMesh.renderOrder = 5; mesh.add(this.headMesh);
+  this.eyes = []; for (const sd of [-1, 1]) { const ex = sd * Y_EYE_X, ey = Y_EYES[kind], e = new THREE.Mesh(c.eyeGeo(ex, ey), M.eye); e.position.set(ex, ey, c.eyeZ(ex, ey)); e.renderOrder = 5; mesh.add(e); this.eyes.push(e); }
+  const headInk = inkMat(ch.eye, W / s, id * 2 + 1, THREE.NotEqualStencilFunc), chinInk = inkMat(ch.eye, W / s, id * 2, THREE.EqualStencilFunc, 0xff, false);
+  this.hull = new THREE.Mesh(c.geo, headInk); this.hull.renderOrder = 6; mesh.add(this.hull);
+  const chin = new THREE.Mesh(c.geo, chinInk); chin.renderOrder = 7; mesh.add(chin);
   this.yaw.add(mesh); this.neckY = 0.62 * u;
+  this.oldMats = [...Object.values(M), bodyInk, headInk, chinInk];
 };
 Orb.prototype.conePose = function (dt, now, sp, acc, t, step) {
   const u = this.u, R = 0.5 * u, g = hillY(this.pos.x, this.pos.z), w = S.headWobble;
@@ -1530,13 +1543,10 @@ Orb.prototype.conePose = function (dt, now, sp, acc, t, step) {
   this.rock.x += this.rockV.x * dt; this.rock.z += this.rockV.z * dt;
   const ax = new V3(this.move.z, 0, -this.move.x), q = new THREE.Quaternion().setFromAxisAngle(ax, this.rock.x).multiply(new THREE.Quaternion().setFromAxisAngle(this.move, this.rock.z));
   this.tilt.quaternion.copy(q);
-  this.body.position.set(this.pos.x, g + R + u * 0.045 + 0.01, this.pos.z); this.ballY = g + 0.06;   // lifted by the outline width so the floor never slices the bowl or its ink
+  this.body.position.set(this.pos.x, g + R + u * 0.03 + 0.01, this.pos.z); this.ballY = g + 0.06;   // lifted by the outline width so the floor never slices the bowl or its ink
   this.shadow.scale.setScalar(u * 1.5); this.shadow.material.opacity = 1;
-  // head: stays put on the neck, only turns left / right toward where it is going (partly toward the viewer so faces read)
-  camFlat.copy(ortho.position).sub(camTarget); camFlat.y = 0;
-  const camW = camFlat.lengthSq() > 1e-4 ? S.headFaceCam : 0; if (camW) camFlat.normalize();
-  const fx = this.move.x * (1 - camW) + camFlat.x * camW, fz = this.move.z * (1 - camW) + camFlat.z * camW;
-  let d = Math.atan2(fx, fz) - this.yawNow; d = Math.atan2(Math.sin(d), Math.cos(d)); this.yawNow += d * Math.min(1, dt * 3); this.yaw.rotation.y = this.yawNow;
+  // head: stays put on the neck and always faces the way the guy is moving (left / right turns only)
+  let d = Math.atan2(this.move.x, this.move.z) - this.yawNow; d = Math.atan2(Math.sin(d), Math.cos(d)); this.yawNow += d * Math.min(1, dt * 9); this.yaw.rotation.y = this.yawNow;
   this.head.quaternion.copy(q); this.head.position.set(0, this.neckY, 0).applyQuaternion(q).add(this.body.position);
   if (this.pop) { this.pop = Math.max(0, this.pop - dt * 2.2); this.head.scale.setScalar(1 + 0.32 * Math.sin(this.pop * Math.PI)); }
   if (S.coneGrid && !roadsWorld()) this.path.hide(); else { this.path.push(this.pos, now); this.path.update(now, S.trailLife, S.ribbonWidth, S.trailStyle === 'ribbon'); }
@@ -1578,9 +1588,17 @@ Orb.prototype.planRoute = function () {
   const C = S.gridCell, R = this.R * 0.7, w = S.ribbonWidth;
   const sx = Math.round(this.pos.x / C) * C, sz = Math.round(this.pos.z / C) * C;   // routes start and turn on grid points
   const legFree = (a, b) => { const L = Math.hypot(b[0] - a[0], b[1] - a[1]), n = Math.ceil(L / 0.3); for (let k = 1; k <= n; k++) if (!isFree(a[0] + (b[0] - a[0]) * k / n, a[1] + (b[1] - a[1]) * k / n, R)) return false; return true; };
+  // avoid other guys' ribbons: everything already laid down, plus the rest of the routes they are rolling now (it will be laid)
+  const CELLSZ = w * 0.75, busy = new Set(), key = (x, z) => Math.floor(x / CELLSZ) + ',' + Math.floor(z / CELLSZ);
+  for (const o of agents) if ((o === this || S.avoidTrails) && o.jr) for (const j of o.jr) {   // its own ribbons always count: no backtracking
+    const s1 = j === o.cur ? j.path.len : j.head;
+    for (let q = j.tail; q <= s1; q += CELLSZ * 0.5) { const a = pathAt(j.path, q); for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) busy.add(key(a.x + dx * CELLSZ, a.z + dz * CELLSZ)); }
+  }
   const othersNear = (q) => agents.some(o => o !== this && o.coneGuy && o.goal && Math.hypot(o.goal[0] - q[0], o.goal[1] - q[1]) < C * 1.5);
-  for (let tries = 0; tries < 60; tries++) {
-    let dir = tries < 40 && this.rdir ? this.rdir : GDIRS[(Math.random() * 4) | 0].slice(), p = [sx, sz]; const route = [[sx, sz]]; let ok = true;
+  for (let tries = 0; tries < (S.avoidTrails ? 90 : 60); tries++) {
+    let dir = tries < 40 && this.rdir ? this.rdir : GDIRS[(Math.random() * 4) | 0].slice(), p = [sx, sz];
+    if (this.lastDir && dir[0] * this.lastDir[0] + dir[1] * this.lastDir[1] < -0.5) continue;   // never head back the way it came
+    const route = [[sx, sz]]; let ok = true;
     const legs = 2 + ((Math.random() * 3) | 0);
     for (let k = 0; k < legs && ok; k++) {
       const diag = Math.abs(dir[0]) > 1e-6 && Math.abs(dir[1]) > 1e-6, cells = diag ? 2 + ((Math.random() * 2) | 0) : 2 + ((Math.random() * 3) | 0);
@@ -1596,7 +1614,8 @@ Orb.prototype.planRoute = function () {
     const path = planPath(route), P = path.pts; let crosses = false;
     for (let i = 0; i < P.length && !crosses; i += 4) for (let j = i + 4; j < P.length; j += 4) if (path.cum[j] - path.cum[i] > w * 5 && Math.hypot(P[i][0] - P[j][0], P[i][1] - P[j][1]) < w * 1.6) { crosses = true; break; }
     if (crosses) continue;
-    this.rdir = dir; this.goal = end; return path;
+    if (busy.size) { let hit = false; for (let i = 0; i < P.length && !hit; i += 3) if (path.cum[i] > w * 1.2 && busy.has(key(P[i][0], P[i][1]))) hit = true; if (hit) continue; }   // (the first stretch may leave from on top of a line)
+    this.rdir = dir; this.lastDir = dir; this.goal = end; return path;
   }
   this.rdir = null; return null;
 };
@@ -1615,7 +1634,7 @@ Orb.prototype.gridStep = function (dt, pace, now) {
   if (this.cur) {
     const j = this.cur; j.t += dt; j.head = Math.min(j.path.len, j.head + speed * Math.min(1, j.t * 3) * dt);   // a quick start, then one steady speed
     const a = pathAt(j.path, j.head); this.pos.set(a.x, this.pos.y, a.z);
-    if (j.head >= j.path.len) { j.state = 'linger'; j.hold = 1.6; this.cur = null; this.gWait = rand(0.4, 1.4); }
+    if (j.head >= j.path.len) { j.state = 'linger'; j.hold = S.trailHold; this.cur = null; this.gWait = rand(0.4, 1.4); }
   }
   for (let i = this.jr.length - 1; i >= 0; i--) {
     const j = this.jr[i];
@@ -1986,11 +2005,12 @@ const mainR = new THREE.WebGLRenderer({ canvas: mainCanvas, antialias: true, ste
 mainR.setPixelRatio(Math.min(2, devicePixelRatio));
 const ortho = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 200);
 const camTarget = new V3(0, 0, 0);
-const ISO = { el: Math.atan(1 / Math.SQRT2), az: Math.PI / 4 }, TOP = { el: Math.PI / 2 - 0.0005, az: 0 };
+const ISO = { el: Math.atan(1 / Math.SQRT2), az: Math.PI / 4, zoom: 1, lift: 0 }, TOP = { el: Math.PI / 2 - 0.0005, az: 0, zoom: 1, lift: 0 }, SIDE = { el: 0.0005, az: 0, zoom: 1.9, lift: 0.75 };   // side: flat 2D, eye level, closer in
 let viewGoal = ISO, viewNow = { ...ISO }, frustum = 15;
 function placeOrtho() {
-  const d = 40; ortho.position.set(Math.cos(viewNow.el) * Math.sin(viewNow.az) * d, Math.sin(viewNow.el) * d, Math.cos(viewNow.el) * Math.cos(viewNow.az) * d).add(camTarget);
-  ortho.lookAt(camTarget); ortho.updateMatrixWorld();
+  const d = 40, tgt = camTarget.clone(); tgt.y += viewNow.lift || 0;
+  ortho.position.set(Math.cos(viewNow.el) * Math.sin(viewNow.az) * d, Math.sin(viewNow.el) * d, Math.cos(viewNow.el) * Math.cos(viewNow.az) * d).add(tgt);
+  ortho.lookAt(tgt); if (Math.abs(ortho.zoom - (viewNow.zoom || 1)) > 1e-4) { ortho.zoom = viewNow.zoom || 1; ortho.updateProjectionMatrix(); } ortho.updateMatrixWorld();
 }
 // fisheye bend shared by both views: corners map to corners so the frame stays full, plus vignette + a hint of color fringe
 function makeFisheye(k, aspect) {
@@ -2150,8 +2170,10 @@ fR.add(S, 'growCam').name('camera eases out');
 fR.add({ regrow: () => { const n = ROADS.nets[S.world]; if (!n) return; if (GROW.anim) { n.group.remove(GROW.anim.line, GROW.anim.pin); GROW.anim = null; } resetNet(n); n.group.visible = true; applyWorld(); } }, 'regrow').name('start the map over');
 const fCG = gui.addFolder('Cone guys');
 fCG.add(S, 'coneGrid').name('grid routes (hero sim)').onChange(() => agents.forEach(GRID_RESET));
+fCG.add(S, 'avoidTrails').name("avoid each other's ribbons");
 fCG.add(S, 'gridCell', 0.4, 2.5, 0.05).name('grid cell size').onChange(() => agents.forEach(GRID_RESET));
 fCG.add(S, 'ribbonWidth', 0.1, 1, 0.01).name('ribbon width');
+fCG.add(S, 'trailHold', 0.5, 20, 0.5).name('ribbon stays (sec)');
 const fH = gui.addFolder('Heads (3D, in wire balls)');
 fH.add(S, 'heads', 1, 30, 1).name('how many').onFinishChange(() => { if (headCast()) populate(); });
 fH.add(S, 'headSize', 0.6, 1.8, 0.05).name('ball size').onFinishChange(() => { if (headCast()) populate(); });
@@ -2199,9 +2221,10 @@ const copyBtn = gui.add({ copy() {
 fP.close(); fC.close();
 
 const btnIso = document.getElementById('btnIso'), btnTop = document.getElementById('btnTop'), btnPause = document.getElementById('btnPause');
-function setView(v) { viewGoal = v === 'top' ? TOP : ISO; btnIso.setAttribute('aria-pressed', v !== 'top'); btnTop.setAttribute('aria-pressed', v === 'top');
-  document.getElementById('mainTag').textContent = v === 'top' ? 'World · top-down · 16:9' : 'World · isometric · 16:9'; }
-btnIso.onclick = () => setView('iso'); btnTop.onclick = () => setView('top');
+const btnSide = document.getElementById('btnSide');
+function setView(v) { viewGoal = v === 'top' ? TOP : v === 'side' ? SIDE : ISO; btnIso.setAttribute('aria-pressed', v === 'iso'); btnTop.setAttribute('aria-pressed', v === 'top'); btnSide.setAttribute('aria-pressed', v === 'side');
+  document.getElementById('mainTag').textContent = v === 'top' ? 'World · top-down · 16:9' : v === 'side' ? 'World · side · 16:9' : 'World · isometric · 16:9'; }
+btnIso.onclick = () => setView('iso'); btnTop.onclick = () => setView('top'); btnSide.onclick = () => setView('side');
 let paused = false;
 btnPause.onclick = () => { paused = !paused; btnPause.setAttribute('aria-pressed', paused); btnPause.textContent = paused ? 'Play' : 'Pause'; };
 document.getElementById('btnClear').onclick = () => { trails = []; updateStamps(Infinity); agents.forEach(a => a.ribbon && a.ribbon.clear()); agents.forEach(a => a.path && a.path.clear()); agents.forEach(a => a.coneGuy && GRID_RESET(a)); agents.forEach(a => { a.cursor = null; a.seg = null; }); };
@@ -2264,7 +2287,7 @@ function frame() {
   if (!paused) { simTime += dt; for (const a of agents) a.update(dt, simTime); updateHill(dt, simTime); growTick(dt); }
   updateTrails(simTime); updateStamps(simTime);
   for (const a of agents) if (a.ribbon) a.ribbon.update(simTime, S.trailLife * 0.3);
-  const k = 1 - Math.exp(-dt * 4); viewNow.el += (viewGoal.el - viewNow.el) * k; viewNow.az += (viewGoal.az - viewNow.az) * k; placeOrtho();
+  const k = 1 - Math.exp(-dt * 4); viewNow.el += (viewGoal.el - viewNow.el) * k; viewNow.az += (viewGoal.az - viewNow.az) * k; viewNow.zoom += (viewGoal.zoom - viewNow.zoom) * k; viewNow.lift += (viewGoal.lift - viewNow.lift) * k; placeOrtho();
   for (const a of agents) { a.glow.visible = nightOn; a.shadow.visible = !nightOn;
     if (nightOn) { a.glow.position.set(a.shadow.position.x, 0.009, a.shadow.position.z); a.glow.material.opacity = S.charGlow * 0.9 / (1 + Math.max(0, a.head.position.y - 1.2)); } }
   trailMat.resolution.copy(mainSize); trailMat.linewidth = S.trailWidth; fatMats.forEach(m => { m.resolution.copy(mainSize); m.linewidth = m.userData.w; }); mainComposer.render();
